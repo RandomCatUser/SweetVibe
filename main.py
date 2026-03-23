@@ -9,14 +9,17 @@ from pathlib import Path
 from datetime import datetime
 
 # Dependencies: pip install asciimatics tinytag
-from asciimatics.screen import Screen
-from asciimatics.exceptions import ResizeScreenError
-from tinytag import TinyTag
+try:
+    from asciimatics.screen import Screen
+    from asciimatics.exceptions import ResizeScreenError
+    from tinytag import TinyTag
+except ImportError:
+    print("Missing dependencies. Please run: pip install asciimatics tinytag")
+    sys.exit(1)
 
 class KityPlayer:
     def __init__(self, screen):
         self.screen = screen
-        # Change this to your music path if needed
         self.base_dir = Path.cwd() / "songs"
         self.current_dir = self.base_dir if self.base_dir.exists() else Path.cwd()
         
@@ -61,12 +64,11 @@ class KityPlayer:
         self.input_mode = None 
         self.input_text = ""
         self.show_help = False
-        self.logs = ["System Booted Successfully", "Welcome to SweetVibe v3.2"]
+        self.logs = ["System Booted Successfully", "Welcome to SweetVibe v4.0"]
 
         self.update_file_list()
 
     def get_display_width(self, text):
-        """Calculates actual terminal column width for strings containing CJK characters."""
         width = 0
         for char in text:
             if unicodedata.east_asian_width(char) in ('W', 'F'):
@@ -76,10 +78,8 @@ class KityPlayer:
         return width
 
     def truncate_text(self, text, max_width):
-        """Truncates text accurately based on visual width."""
         if self.get_display_width(text) <= max_width:
             return text
-        # Reserve 3 chars for '...'
         target = max_width - 3
         if target <= 0: return "." * max_width
         current_width = 0
@@ -92,7 +92,6 @@ class KityPlayer:
         return result + "..."
 
     def pad_text(self, text, total_width):
-        """Pads text with spaces based on visual width to ensure background fills perfectly."""
         current_w = self.get_display_width(text)
         if current_w >= total_width: return text
         return text + (" " * (total_width - current_w))
@@ -114,7 +113,6 @@ class KityPlayer:
         if query:
             filtered = [f for f in filtered if query.lower() in f.lower()]
         
-        # Apply shuffle to the current filtered view
         if self.shuffle:
             random.shuffle(filtered)
             
@@ -128,6 +126,21 @@ class KityPlayer:
         now = datetime.now().strftime('%H:%M')
         self.logs.append(f"[{now}] {msg}")
         if len(self.logs) > 4: self.logs.pop(0)
+
+    def change_volume(self, delta):
+        self.volume = max(0, min(100, self.volume + delta))
+        if self.is_playing:
+            # Re-play from current position to apply volume change immediately in ffplay
+            # Alternatively, on some systems we can use system mixers
+            curr_pos = time.time() - self.start_time
+            self.play_index(self.current_index, resume=True, seek_to=curr_pos)
+        self.add_log(f"Volume: {self.volume}%")
+
+    def toggle_mute(self):
+        self.is_muted = not self.is_muted
+        curr_pos = (time.time() - self.start_time) if self.is_playing else self.elapsed_at_pause
+        self.play_index(self.current_index, resume=True, seek_to=curr_pos)
+        self.add_log("Muted" if self.is_muted else "Unmuted")
 
     def play_index(self, index, resume=False, seek_to=None):
         if not self.display_playlist or index < 0 or index >= len(self.display_playlist): return
@@ -150,8 +163,10 @@ class KityPlayer:
         
         self.start_time = time.time() - self.elapsed_at_pause
         self.is_playing = True
-        vol = 0 if self.is_muted else self.volume
-        cmd = ["ffplay", "-nodisp", "-autoexit", "-volume", str(vol)]
+        
+        # Apply volume
+        vol_val = 0 if self.is_muted else self.volume
+        cmd = ["ffplay", "-nodisp", "-autoexit", "-volume", str(vol_val)]
         if self.elapsed_at_pause > 0: cmd.extend(["-ss", str(self.elapsed_at_pause)])
         cmd.append(str(filepath))
         self.audio_proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -177,20 +192,20 @@ class KityPlayer:
         new_pos = max(0, min(self.duration, current + seconds))
         self.play_index(self.current_index, resume=True, seek_to=new_pos)
 
-    def draw_box(self, x, y, w, h, title="", color=Screen.COLOUR_WHITE, attr=Screen.A_BOLD, rounded=False, clear=True):
+    def draw_box(self, x, y, w, h, title="", color=Screen.COLOUR_WHITE, attr=Screen.A_BOLD, rounded=False, clear=True, bg=Screen.COLOUR_BLACK):
         if w < 2 or h < 2: return
         if clear:
             for i in range(h + 1):
-                self.screen.print_at(" " * w, x, y + i, bg=Screen.COLOUR_BLACK)
+                self.screen.print_at(" " * w, x, y + i, bg=bg)
         
         tl, tr, bl, br = ("╭", "╮", "╰", "╯") if rounded else ("╔", "╗", "╚", "╝")
         h_line, v_line = ("─", "│") if rounded else ("═", "║")
         
-        self.screen.print_at(tl + h_line * (w - 2) + tr, x, y, color, attr)
+        self.screen.print_at(tl + h_line * (w - 2) + tr, x, y, color, attr, bg=bg)
         for i in range(1, h):
-            self.screen.print_at(v_line, x, y + i, color, attr)
-            self.screen.print_at(v_line, x + w - 1, y + i, color, attr)
-        self.screen.print_at(bl + h_line * (w - 2) + br, x, y + h, color, attr)
+            self.screen.print_at(v_line, x, y + i, color, attr, bg=bg)
+            self.screen.print_at(v_line, x + w - 1, y + i, color, attr, bg=bg)
+        self.screen.print_at(bl + h_line * (w - 2) + br, x, y + h, color, attr, bg=bg)
         
         if title:
             clean_title = self.truncate_text(title, w - 6)
@@ -231,8 +246,6 @@ class KityPlayer:
             icon = '♪ ' if is_sel else '  '
             clean_name = song.rsplit('.', 1)[0]
             
-            # FIXED: We now carefully measure visual width (CJK = 2 cols)
-            # and pad the remaining area with spaces to avoid previous text artifacts.
             avail_w = p_w - 2
             display_name = self.truncate_text(f"{icon}{clean_name}", avail_w - 1)
             padded_line = self.pad_text(f" {display_name}", avail_w)
@@ -289,24 +302,69 @@ class KityPlayer:
         footer = f" [SHUF:{'ON' if self.shuffle else 'OFF'}] [LOOP:{'ON' if self.repeat else 'OFF'}] | ^H:Help ^F:Search ^B:Back ^E:Shuf ^O:Path Q:Quit "
         self.screen.print_at(footer.center(w)[:w], 0, h - 1, Screen.COLOUR_BLACK, bg=Screen.COLOUR_WHITE)
 
-        # Modals are drawn last with 'clear=True' to ensure they sit on top
-        if self.show_help:
-            hw, hh = 44, 13
-            hx, hy = (w - hw) // 2, (h - hh) // 2
-            self.draw_box(hx, hy, hw, hh, " HELP MENU ", Screen.COLOUR_YELLOW, rounded=True, clear=True)
-            help_txt = [
-                "ENTER       : Play Selected", "UP/DOWN     : Navigate List", "LEFT/RIGHT  : Seek -/+ 10s",
-                "+ / -       : Volume Control", "M           : Mute Toggle", "CTRL + E    : Shuffle Toggle",
-                "R           : Repeat Toggle", "CTRL + F    : Search", "CTRL + O    : Change Folder",
-                "CTRL + B    : Back / Close", "CTRL + H    : Close Help", "Q           : Quit Player"
-            ]
-            for i, line in enumerate(help_txt): self.screen.print_at(line, hx + 2, hy + 2 + i)
-
+        # UNIFIED COMMAND PALETTE
         if self.input_mode:
-            mx, my = (w - 60) // 2, (h // 2) - 3
-            self.draw_box(mx, my, 60, 4, f" ENTERING {self.input_mode.upper()} ", Screen.COLOUR_YELLOW, rounded=True, clear=True)
-            display_input = self.truncate_text(self.input_text, 54)
-            self.screen.print_at(f" > {display_input}_", mx + 2, my + 2, Screen.COLOUR_WHITE)
+            palette_w = 64
+            px, py = (w - palette_w) // 2, 2
+            
+            # Palette Container
+            title = "SEARCH" if self.input_mode == 'search' else "CHANGE DIRECTORY"
+            self.draw_box(px, py, palette_w, 4, f" COMMAND: {title} ", Screen.COLOUR_YELLOW, rounded=True, bg=Screen.COLOUR_BLACK)
+            
+            prompt = "Filter:" if self.input_mode == 'search' else "Path:"
+            self.screen.print_at(prompt, px + 2, py + 2, Screen.COLOUR_CYAN, Screen.A_BOLD)
+            
+            visible_w = palette_w - 12
+            if self.get_display_width(self.input_text) > visible_w:
+                display_input = "..." + self.input_text[-(visible_w-3):]
+            else:
+                display_input = self.input_text
+            
+            self.screen.print_at(display_input, px + 10, py + 2, Screen.COLOUR_WHITE, Screen.A_BOLD)
+            
+            # Animated Cursor
+            if int(time.time() * 2) % 2 == 0:
+                cursor_pos = px + 10 + self.get_display_width(display_input)
+                if cursor_pos < px + palette_w - 1:
+                    self.screen.print_at("█", cursor_pos, py + 2, Screen.COLOUR_YELLOW)
+
+        # REFINED HELP MENU
+        if self.show_help:
+            hw, hh = 62, 19
+            hx, hy = (w - hw) // 2, (h - hh) // 2 - 1
+            for row in range(hh + 1):
+                self.screen.print_at(" " * hw, hx + 1, hy + 1 + row, bg=Screen.COLOUR_BLACK)
+            self.draw_box(hx, hy, hw, hh, " HELP & COMMANDS ", Screen.COLOUR_YELLOW, rounded=True, bg=Screen.COLOUR_BLACK)
+            
+            help_items = [
+                ("CATEGORY: NAVIGATION", Screen.COLOUR_CYAN),
+                ("UP / DOWN", "Navigate Song List"),
+                ("ENTER", "Play Selected Song"),
+                ("CTRL + F", "VS Code Style Search"),
+                ("CTRL + O", "Open Directory Path"),
+                ("", None),
+                ("CATEGORY: PLAYBACK", Screen.COLOUR_CYAN),
+                ("SPACE", "Play / Pause Toggle"),
+                ("LEFT / RIGHT", "Seek -10s / +10s"),
+                ("+ / -", "Volume Up / Down"),
+                ("M", "Mute / Unmute"),
+                ("", None),
+                ("CATEGORY: SYSTEM", Screen.COLOUR_CYAN),
+                ("CTRL + E", "Toggle Shuffle Mode"),
+                ("R", "Toggle Repeat Mode"),
+                ("CTRL + B / ESC", "Clear / Close Dialogs"),
+                ("Q", "Quit Application")
+            ]
+            
+            for i, item in enumerate(help_items):
+                row_y = hy + 2 + i
+                if isinstance(item[1], int):
+                    self.screen.print_at(item[0], hx + 4, row_y, item[1], Screen.A_BOLD)
+                elif item[0] == "": continue
+                else:
+                    label = self.pad_text(item[0], 16)
+                    self.screen.print_at(label, hx + 6, row_y, Screen.COLOUR_YELLOW)
+                    self.screen.print_at(f": {item[1]}", hx + 22, row_y, Screen.COLOUR_WHITE)
 
 _shared_state = {}
 
@@ -335,33 +393,60 @@ def demo(screen):
 
                 if player.input_mode:
                     if k in [10, 13]: 
-                        if player.input_mode == 'search': player.search_query = player.input_text
+                        if player.input_mode == 'search': 
+                            player.search_query = player.input_text
+                            player.add_log(f"Search: {player.search_query if player.search_query else 'None'}")
                         elif player.input_mode == 'folder':
                             p = Path(player.input_text)
-                            if p.exists(): player.current_dir = p; player.update_file_list()
-                        player.input_mode = None; player.input_text = ""; player.apply_filter()
-                    elif ctrl_b or esc: player.input_mode = None; player.input_text = ""
-                    elif k in [Screen.KEY_BACK, -300]: player.input_text = player.input_text[:-1]
-                    elif 32 <= k <= 126: player.input_text += chr(k)
+                            if p.exists() and p.is_dir(): 
+                                player.current_dir = p
+                                player.update_file_list()
+                                player.add_log(f"Dir: {p.name}")
+                            else:
+                                player.add_log("Error: Path invalid")
+                        player.input_mode = None
+                        player.input_text = ""
+                        player.apply_filter()
+                    elif ctrl_b or esc: 
+                        player.input_mode = None
+                        player.input_text = ""
+                    elif k in [Screen.KEY_BACK, -300, 8, 127]: 
+                        player.input_text = player.input_text[:-1]
+                        if player.input_mode == 'search': player.apply_filter()
+                    elif 32 <= k <= 126: 
+                        player.input_text += chr(k)
+                        if player.input_mode == 'search': player.apply_filter()
+                
                 elif player.show_help:
                     if ctrl_b or ctrl_h or esc: player.show_help = False
+                
                 else:
                     if k in [ord('q'), ord('Q')]: player.stop(); sys.exit(0)
                     elif k == ord(' '): player.toggle_pause()
-                    elif k in [ord('m'), ord('M')]: player.is_muted = not player.is_muted
+                    elif k in [ord('m'), ord('M')]: player.toggle_mute()
                     elif ctrl_h: player.show_help = True
-                    elif k == ord('+'): player.volume = min(100, player.volume + 5)
-                    elif k == ord('-'): player.volume = max(0, player.volume - 5)
+                    elif k == ord('+') or k == ord('='): player.change_volume(5)
+                    elif k == ord('-') or k == ord('_'): player.change_volume(-5)
                     elif k == Screen.KEY_RIGHT: player.seek(10)
                     elif k == Screen.KEY_LEFT: player.seek(-10)
-                    elif ctrl_f: player.input_mode = 'search'; player.input_text = player.search_query
-                    elif ctrl_o: player.input_mode = 'folder'; player.input_text = str(player.current_dir)
+                    elif ctrl_f: 
+                        player.input_mode = 'search'
+                        player.input_text = player.search_query
+                    elif ctrl_o: 
+                        player.input_mode = 'folder'
+                        player.input_text = str(player.current_dir)
                     elif ctrl_b or esc: 
-                        if player.search_query: player.search_query = ""; player.apply_filter()
+                        if player.search_query: 
+                            player.search_query = ""
+                            player.apply_filter()
+                            player.add_log("Filter Cleared")
                     elif ctrl_e: 
                         player.shuffle = not player.shuffle
                         player.apply_filter()
-                    elif k in [ord('r'), ord('R')]: player.repeat = not player.repeat
+                        player.add_log(f"Shuffle: {'ON' if player.shuffle else 'OFF'}")
+                    elif k in [ord('r'), ord('R')]: 
+                        player.repeat = not player.repeat
+                        player.add_log(f"Repeat: {'ON' if player.repeat else 'OFF'}")
                     elif k == Screen.KEY_UP: player.current_index = max(0, player.current_index - 1)
                     elif k == Screen.KEY_DOWN: player.current_index = min(len(player.display_playlist)-1, player.current_index + 1)
                     elif k in [10, 13]: player.play_index(player.current_index)
