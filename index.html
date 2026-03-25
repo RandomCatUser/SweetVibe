@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Egg Timer</title>
+    <link rel="stylesheet" href="index.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&display=swap" rel="stylesheet">
+    <link rel="preload" href="./assets/start menu/egg timer start menu.png" as="Egg colored Bunny Decoration">
+</head>
+
+<body>
+<audio id="alarm-ring" src="./assets/sound/78562__joedeshon__alarm_clock_ringing_01.wav" preload="auto"></audio>    
+<audio id="pop-sound" src="./assets/sound/463390__vilkas_sound__vs-pop_2.mp3" preload="auto"></audio>
+    <div class="app-frame">
+        <img src="./assets/egg timer frame.png" class="frame-image" alt="App Frame">
+    <!--window controls-->
+    <div class="window-controls">
+        <button id="minimize-btn" class="window-control">
+            <img src="assets/frame icons/min button.png" alt="Minimize">
+        </button>
+        <button id="close-btn" class="window-control">
+            <img src="assets/frame icons/x button.png" alt="Close">
+        </button>
+    </div>
+    <!--container-->
+    <div class="container">
+        <!-- <h1>🥚 Egg Timer 🍳</h1> -->
+
+        <div id="main-screen">
+            <div class="content-wrapper">
+                <img src="./assets/start menu/egg timer start menu.png" class="decoration-image" alt="Egg colored Bunny Decoration">
+                <div class="interactive-content">
+                    <button id="start-btn">Start Cooking</button>
+                    <p>cousomized by Dihan</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="selection-screen" style="display: none;">
+            <h2>What are we making today?</h2>
+            <div class="options">
+                <!-- First row -->
+                <div class="option-row">
+                    <div class="egg-choice">
+                        <button class="egg-option" data-time="180">
+                            <img src="assets/choice menu/softBoiled.png" alt="Soft Boiled (3 min)">
+                        </button>
+                        <p class="egg-label">Soft Boiled</p>
+                    </div>
+                    <div class="egg-choice">
+                        <button class="egg-option" data-time="420">
+                            <img src="assets/choice menu/hardBoiled.png" alt="Hard Boiled (7 min)">
+                        </button>
+                        <p class="egg-label">Hard Boiled</p>
+                    </div>
+                </div>
+            
+                <!-- Second row -->
+                <div class="option-row">
+                    <div class="egg-choice">
+                        <button class="egg-option" data-time="240">
+                            <img src="assets/choice menu/eggToast.png" alt="Fried (4 min)">
+                        </button>
+                        <p class="egg-label">Fried</p>
+                    </div>
+                    <div class="egg-choice">
+                        <button class="egg-option" data-time="150">
+                            <img src="assets/choice menu/scrambledEggs.png" alt="Scrambled (2.5 min)">
+                        </button>
+                        <p class="egg-label">Scrambled</p>
+                    </div>
+                </div>
+            </div><!--options div--->
+            <button id="back-btn" class="secondary-btn">Back</button>
+        </div>
+
+        <div id="timer-screen" style="display: none;">
+            <div class="egg-animation-container">
+                <img src="assets/ready in timer menu/egg timer ready in f1.png" id="egg-anim">
+            </div>
+            <div id="timer-display">00:00</div>
+            <div class="timer-controls">
+                <button id="snooze-btn">Pause</button>
+                <button id="stop-btn">Stop</button>
+            </div>
+        </div>
+
+        <div id="completion-screen" style="display: none;">
+            <img src="./assets/done menu/egg timer done.png" id="egg-done" />
+            <h2>Your Eggs Are Ready!</h2>
+            <p>Enjoy your perfectly cooked eggs!</p>
+            <div class="completion-buttons">
+                <button id="cook-again-btn">Close</button>
+                <button id="snooze-alarm-btn">Snooze</button>
+                <button id="exit-btn">Exit</button>
+            </div>
+        </div>
+    </div><!--container div-->
+</div><!--app-frame div-->
+    <script src="renderer.js"></script>
+</body>
+
+</html>
