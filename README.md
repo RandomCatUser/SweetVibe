@@ -38,7 +38,7 @@ If you want to run the script directly:
 | Q | Quit Player |
 
 ## Video
-[Watch the SweetVibe Preview Video](https://github.com/RandomCatUser/SweetVibe/blob/main/ReadmeAssests/Preview.mp4)
+![Watch the SweetVibe Preview Video](https://github.com/RandomCatUser/SweetVibe/blob/main/ReadmeAssests/Preview.mp4)
 
 ## License
 
