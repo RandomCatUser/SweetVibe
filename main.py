@@ -65,7 +65,7 @@ class KityPlayer:
         self.input_text = ""
         self.show_help = False
         self.show_about = False
-        self.logs = ["System Booted Successfully", "Welcome to SweetVibe v4.0"]
+        self.logs = ["System Booted Successfully", "Welcome to SweetVibe"]
 
         self.update_file_list()
 
@@ -318,7 +318,7 @@ class KityPlayer:
             ax, ay = (w - aw) // 2, (h - ah) // 2
             self.draw_box(ax, ay, aw, ah, " ABOUT SWEETVIBE ", Screen.COLOUR_MAGENTA, rounded=True)
             about_lines = [
-                "SweetVibe TUI Player v4.0",
+                "SweetVibe TUI Player v1.0",
                 "Built with Asciimatics & FFmpeg",
                 "",
                 "A lightweight Terminal Music Player",
