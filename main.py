@@ -318,7 +318,7 @@ class KityPlayer:
             ax, ay = (w - aw) // 2, (h - ah) // 2
             self.draw_box(ax, ay, aw, ah, " ABOUT SWEETVIBE ", Screen.COLOUR_MAGENTA, rounded=True)
             about_lines = [
-                "SweetVibe TUI Player v1.0",
+                "SweetVibe TUI Player v1.1",
                 "Built with Asciimatics & FFmpeg",
                 "",
                 "A lightweight Terminal Music Player",
