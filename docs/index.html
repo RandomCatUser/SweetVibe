@@ -1,146 +1,255 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SweetVibe | Command Line Music</title>
+    <title>SweetVibe — Simple Music, Open Models</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&family=Geist:wght@100..900&display=swap');
-
-        :root {
-            --bg-main: #000000;
-            --accent: #a855f7;
-            --border: rgba(255, 255, 255, 0.08);
-        }
-
-        body {
-            font-family: 'Geist', sans-serif;
-            background-color: var(--bg-main);
-            color: #fafafa;
-            -webkit-font-smoothing: antialiased;
-        }
-
-        .mono {
-            font-family: 'Geist Mono', monospace;
-        }
-
-        .glow-button {
-            position: relative;
-            overflow: hidden;
-            transition: all 0.3s ease;
-        }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
         
-        .glow-button:hover {
-            box-shadow: 0 0 20px rgba(168, 85, 247, 0.4);
-            transform: translateY(-1px);
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #ffffff;
+            color: #000;
+            scroll-behavior: smooth;
+            letter-spacing: -0.01em;
+            overflow-x: hidden;
         }
 
-        /* Clean Reddit Embed Fix */
-        .reddit-embed-container {
-            width: 100%;
-            max-width: 640px;
+        .container-narrow {
+            max-width: 700px;
             margin: 0 auto;
-            min-height: 520px;
+            padding: 0 24px;
         }
 
-        /* Minimalist Nav */
-        nav {
-            background: rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(12px);
+        /* Mascot Logo Styling */
+        .mascot-container {
+            position: relative;
+            display: inline-block;
+            margin-bottom: 40px;
         }
 
-        .requirement-tag {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid var(--border);
-            padding: 4px 12px;
+        .mascot-img {
+            width: 120px;
+            height: auto;
+            filter: grayscale(1);
+            opacity: 0.9;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), filter 0.3s ease;
+            cursor: pointer;
+        }
+
+        .mascot-img:hover {
+            filter: grayscale(0);
+            transform: scale(1.1);
+        }
+
+        /* Title Styling */
+        .hero-title {
+            font-size: clamp(2rem, 6vw, 2.75rem);
+            font-weight: 800;
+            line-height: 1.2;
+            letter-spacing: -0.04em;
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .hero-sub {
+            font-size: 1.125rem;
+            color: #71717a;
+            max-width: 500px;
+            margin: 0 auto 48px auto;
+            line-height: 1.6;
+        }
+
+        .btn-black {
+            background: #000;
+            color: #fff;
+            padding: 14px 32px;
             border-radius: 99px;
-            font-size: 10px;
+            font-weight: 600;
+            font-size: 15px;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .btn-black:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px -10px rgba(0,0,0,0.3);
+        }
+
+        /* Floating elements styling */
+        .floating-preview {
+            position: fixed;
+            z-index: 100;
+            pointer-events: none;
+            animation: popFade 1.8s forwards cubic-bezier(0.23, 1, 0.32, 1);
+        }
+
+        /* Specific styling for floating images */
+        img.floating-preview {
+            border: 1px solid #000;
+            box-shadow: 8px 8px 0px rgba(0,0,0,1);
+            border-radius: 2px;
+            max-width: 280px;
+            background: #fff;
+        }
+
+        /* Specific styling for floating SVGs */
+        .floating-svg {
+            width: 80px;
+            height: 80px;
+            filter: drop-shadow(4px 4px 0px #000);
+        }
+
+        @keyframes popFade {
+            0% { transform: scale(0.3) rotate(-10deg); opacity: 0; }
+            15% { transform: scale(1) rotate(0deg); opacity: 1; }
+            85% { opacity: 1; }
+            100% { transform: translateY(-40px) scale(1.05); opacity: 0; }
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-cols: 1fr;
+            gap: 40px;
+            margin-top: 100px;
+        }
+
+        @media (min-width: 640px) {
+            .feature-grid {
+                grid-template-cols: repeat(2, 1fr);
+            }
+        }
+
+        .feature-item h3 {
+            font-weight: 700;
+            font-size: 15px;
+            margin-bottom: 8px;
             text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: rgba(255, 255, 255, 0.4);
+            letter-spacing: 0.05em;
+        }
+
+        .feature-item p {
+            font-size: 14px;
+            color: #71717a;
+            line-height: 1.5;
+        }
+
+        .divider {
+            height: 1px;
+            background: #f4f4f5;
+            width: 100%;
+            margin: 80px 0;
         }
     </style>
 </head>
-<body class="selection:bg-purple-500/40">
+<body class="flex flex-col min-h-screen">
 
-    <!-- Nav -->
-    <nav class="fixed top-0 w-full z-[100] border-b border-white/5">
-        <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <img src="https://raw.githubusercontent.com/RandomCatUser/SweetVibe/main/ico.ico" alt="SweetVibe" class="w-6 h-6">
-                <span class="text-sm font-bold tracking-tighter uppercase">SweetVibe</span>
-            </div>
-            <div class="flex items-center gap-6">
-                <div class="requirement-tag hidden md:block">Requires FFmpeg</div>
-                <a href="https://github.com/RandomCatUser/SweetVibe/releases/download/v1.0.0/Setup.exe" class="text-xs bg-white text-black px-5 py-2 rounded-full font-bold hover:bg-zinc-200 transition-colors">
-                    Download
-                </a>
-            </div>
-        </div>
-    </nav>
-
-    <!-- Hero -->
-    <main class="pt-32 pb-24 px-6">
-        <div class="max-w-4xl mx-auto text-center">
-            <h1 class="text-6xl md:text-8xl font-bold tracking-tighter mb-8 bg-gradient-to-b from-white to-white/40 bg-clip-text text-transparent">
-                Vibe in the <br>Terminal.
-            </h1>
+    <main class="flex-grow flex flex-col justify-center py-24">
+        <div class="container-narrow text-center">
             
-            <p class="text-white/40 text-lg md:text-xl mb-12 font-medium max-w-xl mx-auto leading-tight">
-                SweetVibe is a minimalist TUI music player for Windows. 
-                Optimized for focus and command-line speed.
+            <!-- Mascot Logo (Primary) -->
+            <div class="mascot-container">
+                <img id="mainLogo" src="https://github.com/RandomCatUser/SweetVibe/blob/main/ReadmeAssests/JUZyF-removebg-preview.png?raw=true" class="mascot-img" alt="SweetVibe Mascot">
+            </div>
+            
+            <!-- Hero Text -->
+            <h1 class="hero-title">Start building with<br>open music models</h1>
+            <p class="hero-sub">
+                A minimalist audio player designed for focus. Powered by local processing for high-fidelity playback without the tracking.
             </p>
-
-            <div class="flex flex-col sm:flex-row justify-center gap-4 mb-24">
-                <a href="https://github.com/RandomCatUser/SweetVibe/releases/download/v1.0.0/Setup.exe" class="glow-button px-10 py-4 bg-purple-600 rounded-full text-sm font-bold flex items-center justify-center gap-2">
-                    <i class="fas fa-download"></i> Download Setup.exe
+            
+            <!-- Primary Action -->
+            <div class="flex flex-col items-center gap-6">
+                <a href="https://github.com/RandomCatUser/SweetVibe/releases/download/v1.1.0/Setup.exe" class="btn-black">
+                    <i class="fa-brands fa-microsoft"></i>
+                    Download for Windows
                 </a>
-                <a href="https://github.com/RandomCatUser/SweetVibe" class="px-10 py-4 border border-white/10 hover:bg-white/5 rounded-full text-sm font-bold transition-all">
+                <a href="https://github.com/RandomCatUser/SweetVibe/" class="text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-black transition-colors">
                     View on GitHub
                 </a>
             </div>
-            
-            <!-- Reddit Embed Section (No Window Frame) -->
-            <div class="reddit-embed-container mb-20">
-                <blockquote class="reddit-embed-bq" data-embed-locale="en-EN" data-embed-height="520" data-embed-theme="dark">
-                    <a href="https://www.reddit.com/user/SpecialTension1212/comments/1s3jigb/sweetvibe_terminal_based_music_player_to_windows/">SweetVibe Preview</a>
-                </blockquote>
-                <script async src="https://embed.reddit.com/widgets.js" charset="UTF-8"></script>
+
+            <div class="divider"></div>
+
+            <!-- Simple Features -->
+            <div class="feature-grid text-left">
+                <div class="feature-item">
+                    <h3>Focus First</h3>
+                    <p>No algorithms, no ads, and no distractions. Just you and your local music library.</p>
+                </div>
+                <div class="feature-item">
+                    <h3>Privacy Core</h3>
+                    <p>Your listening habits are your business. SweetVibe is 100% offline and telemetry-free.</p>
+                </div>
+                <div class="feature-item">
+                    <h3>Open Engine</h3>
+                    <p>Leveraging open-source models for high-bitrate audio processing and visualization.</p>
+                </div>
+                <div class="feature-item">
+                    <h3>Lean Build</h3>
+                    <p>Optimized for minimal system impact, leaving your resources free for actual work.</p>
+                </div>
             </div>
         </div>
     </main>
 
-    <!-- Requirements Footer Bar -->
-    <section class="py-12 border-t border-white/5">
-        <div class="max-w-xl mx-auto px-6 text-center">
-            <h3 class="text-xs font-bold text-white/20 uppercase tracking-[0.3em] mb-4">Note</h3>
-            <p class="text-sm text-white/50 leading-relaxed italic">
-                SweetVibe requires <a href="https://ffmpeg.org" class="text-white/80 hover:text-purple-400 underline decoration-white/10 underline-offset-4 transition-colors">FFmpeg</a> to be installed and available in your system path for audio decoding.
-            </p>
-        </div>
-    </section>
-
-    <!-- Footer -->
-    <footer class="py-16 border-t border-white/5">
-        <div class="max-w-6xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-8">
-            <div class="flex items-center gap-2">
-                <img src="https://raw.githubusercontent.com/RandomCatUser/SweetVibe/main/ico.ico" class="w-4 h-4 opacity-30" alt="">
-                <span class="text-[10px] font-black uppercase tracking-[0.3em] opacity-30">SweetVibe App</span>
+    <!-- Simple Footer -->
+    <footer class="py-12 border-t border-gray-50">
+        <div class="container-narrow flex flex-col md:flex-row justify-between items-center gap-6">
+            <span class="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-300">
+                &copy; 2026 SweetVibe
+            </span>
+            <div class="flex gap-8 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                <a href="#" class="hover:text-black">Docs</a>
+                <a href="#" class="hover:text-black">Privacy</a>
+                <a href="#" class="hover:text-black">Support</a>
             </div>
-            
-            <div class="flex gap-8 text-[10px] font-bold uppercase tracking-widest text-white/20">
-                <a href="https://github.com/RandomCatUser/SweetVibe" class="hover:text-white transition-colors">Source</a>
-                <a href="https://github.com/RandomCatUser/SweetVibe/releases" class="hover:text-white transition-colors">Releases</a>
-                <a href="#" class="hover:text-white transition-colors">License</a>
-            </div>
-
-            <p class="text-[10px] font-bold uppercase tracking-widest text-white/10">
-                &copy; 2024
-            </p>
         </div>
     </footer>
+
+    <script>
+        const logo = document.getElementById('mainLogo');
+        const assets = [
+            { type: 'img', src: 'https://github.com/RandomCatUser/SweetVibe/blob/main/ReadmeAssests/image_a3b8a0.png?raw=true' },
+            { type: 'img', src: 'https://github.com/RandomCatUser/SweetVibe/blob/main/ReadmeAssests/image_a41d9f.png?raw=true' },
+            { type: 'img', src: 'https://github.com/RandomCatUser/SweetVibe/blob/main/ReadmeAssests/image_a43028.png?raw=true' },
+            { type: 'img', src: 'https://github.com/RandomCatUser/SweetVibe/blob/main/ReadmeAssests/image_b1d6cc.png?raw=true' },
+            { type: 'svg', src: 'https://www.svgrepo.com/show/289387/music-player.svg' }
+        ];
+
+        let lastPopupTime = 0;
+
+        logo.addEventListener('mousemove', (e) => {
+            const now = Date.now();
+            if (now - lastPopupTime < 180) return;
+            lastPopupTime = now;
+
+            const asset = assets[Math.floor(Math.random() * assets.length)];
+            const el = document.createElement('img');
+            el.src = asset.src;
+            el.className = 'floating-preview' + (asset.type === 'svg' ? ' floating-svg' : '');
+
+            const x = Math.random() * (window.innerWidth - 300);
+            const y = Math.random() * (window.innerHeight - 250);
+
+            el.style.left = `${x}px`;
+            el.style.top = `${y}px`;
+            
+            const rotate = (Math.random() * 20) - 10;
+            el.style.transform = `rotate(${rotate}deg)`;
+
+            document.body.appendChild(el);
+
+            setTimeout(() => {
+                el.remove();
+            }, 1800);
+        });
+    </script>
 
 </body>
 </html>
