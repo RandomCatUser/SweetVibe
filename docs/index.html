@@ -7,10 +7,10 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700;900&display=swap');
         
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: 'Inter', 'Noto Sans SC', sans-serif;
             background-color: #ffffff;
             color: #000;
             scroll-behavior: smooth;
@@ -22,6 +22,40 @@
             max-width: 700px;
             margin: 0 auto;
             padding: 0 24px;
+        }
+
+        /* Lang Toggle */
+        .lang-switch {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            z-index: 50;
+            background: #f4f4f5;
+            padding: 4px;
+            border-radius: 99px;
+            display: flex;
+            gap: 2px;
+        }
+
+        .lang-btn {
+            padding: 6px 12px;
+            border-radius: 99px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .lang-btn.active {
+            background: #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            color: #000;
+        }
+
+        .lang-btn:not(.active) {
+            color: #a1a1aa;
         }
 
         /* Mascot Logo Styling */
@@ -81,7 +115,7 @@
             box-shadow: 0 10px 20px -10px rgba(0,0,0,0.3);
         }
 
-        /* Floating elements styling */
+        /* Floating elements */
         .floating-preview {
             position: fixed;
             z-index: 100;
@@ -89,7 +123,6 @@
             animation: popFade 1.8s forwards cubic-bezier(0.23, 1, 0.32, 1);
         }
 
-        /* Specific styling for floating images */
         img.floating-preview {
             border: 1px solid #000;
             box-shadow: 8px 8px 0px rgba(0,0,0,1);
@@ -98,7 +131,6 @@
             background: #fff;
         }
 
-        /* Specific styling for floating SVGs */
         .floating-svg {
             width: 80px;
             height: 80px;
@@ -145,74 +177,137 @@
             width: 100%;
             margin: 80px 0;
         }
+
+        /* Hide logic */
+        [data-lang] { display: none; }
+        html[lang="en"] [data-lang="en"] { display: block; }
+        html[lang="zh"] [data-lang="zh"] { display: block; }
+        
+        /* Specific flex handling */
+        html[lang="en"] span[data-lang="en"], html[lang="zh"] span[data-lang="zh"] { display: inline; }
+        html[lang="en"] div[data-lang="en"], html[lang="zh"] div[data-lang="zh"] { display: block; }
     </style>
 </head>
 <body class="flex flex-col min-h-screen">
 
+    <nav class="lang-switch">
+        <button onclick="setLang('en')" id="btn-en" class="lang-btn active">EN</button>
+        <button onclick="setLang('zh')" id="btn-zh" class="lang-btn">中文</button>
+    </nav>
+
     <main class="flex-grow flex flex-col justify-center py-24">
         <div class="container-narrow text-center">
             
-            <!-- Mascot Logo (Primary) -->
             <div class="mascot-container">
                 <img id="mainLogo" src="https://github.com/RandomCatUser/SweetVibe/blob/main/ReadmeAssests/JUZyF-removebg-preview.png?raw=true" class="mascot-img" alt="SweetVibe Mascot">
             </div>
             
-            <!-- Hero Text -->
-            <h1 class="hero-title">Your Local Music With<br>SweetVibe</h1>
+            <h1 class="hero-title">
+                <span data-lang="en">Your Local Music With<br>SweetVibe</span>
+                <span data-lang="zh">让本地音乐重回<br>SweetVibe 的怀抱</span>
+            </h1>
+
             <p class="hero-sub">
-                A minimalist audio player designed for focus.
+                <span data-lang="en">A minimalist audio player designed for focus.</span>
+                <span data-lang="zh">专为专注力打造的极简音频播放器。</span>
             </p>
             
-            <!-- Primary Action -->
             <div class="flex flex-col items-center gap-6">
                 <a href="https://github.com/RandomCatUser/SweetVibe/releases/download/v1.1.0/Setup.exe" class="btn-black">
                     <i class="fa-brands fa-microsoft"></i>
-                    Download for Windows
+                    <span data-lang="en">Download for Windows</span>
+                    <span data-lang="zh">下载 Windows 版</span>
                 </a>
                 <a href="https://github.com/RandomCatUser/SweetVibe/" class="text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-black transition-colors">
-                    View on GitHub
+                    <span data-lang="en">View on GitHub</span>
+                    <span data-lang="zh">在 GitHub 上查看</span>
                 </a>
             </div>
 
             <div class="divider"></div>
 
-            <!-- Simple Features -->
             <div class="feature-grid text-left">
                 <div class="feature-item">
-                    <h3>Focus First</h3>
-                    <p>No algorithms, no ads, and no distractions. Just you and your local music library.</p>
+                    <h3>
+                        <span data-lang="en">Focus First</span>
+                        <span data-lang="zh">专注至上</span>
+                    </h3>
+                    <p>
+                        <span data-lang="en">No algorithms, no ads, and no distractions. Just you and your local music library.</span>
+                        <span data-lang="zh">没有算法推荐，没有烦人广告，更没有干扰。只有你和你的本地音乐库。</span>
+                    </p>
                 </div>
                 <div class="feature-item">
-                    <h3>Privacy Core</h3>
-                    <p>Your listening habits are your business. SweetVibe is 100% offline and telemetry-free.</p>
+                    <h3>
+                        <span data-lang="en">Privacy Core</span>
+                        <span data-lang="zh">隐私核心</span>
+                    </h3>
+                    <p>
+                        <span data-lang="en">Your listening habits are your business. SweetVibe is 100% offline and telemetry-free.</span>
+                        <span data-lang="zh">你的听歌习惯是你自己的隐私。SweetVibe 100% 离线运行，绝无任何遥测跟踪。</span>
+                    </p>
                 </div>
                 <div class="feature-item">
-                    <h3>Open Engine</h3>
-                    <p>Leveraging open-source models for high-bitrate audio processing and visualization.</p>
+                    <h3>
+                        <span data-lang="en">Open Engine</span>
+                        <span data-lang="zh">开放引擎</span>
+                    </h3>
+                    <p>
+                        <span data-lang="en">Leveraging open-source models for high-bitrate audio processing and visualization.</span>
+                        <span data-lang="zh">利用开源模型提供高位深音频处理和实时可视化效果。</span>
+                    </p>
                 </div>
                 <div class="feature-item">
-                    <h3>Lean Build</h3>
-                    <p>Optimized for minimal system impact, leaving your resources free for actual work.</p>
+                    <h3>
+                        <span data-lang="en">Lean Build</span>
+                        <span data-lang="zh">轻量构建</span>
+                    </h3>
+                    <p>
+                        <span data-lang="en">Optimized for minimal system impact, leaving your resources free for actual work.</span>
+                        <span data-lang="zh">极低系统占用优化，把更多的资源留给你的核心工作。</span>
+                    </p>
                 </div>
             </div>
         </div>
     </main>
 
-    <!-- Simple Footer -->
     <footer class="py-12 border-t border-gray-50">
         <div class="container-narrow flex flex-col md:flex-row justify-between items-center gap-6">
             <span class="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-300">
                 &copy; 2026 SweetVibe
             </span>
             <div class="flex gap-8 text-[10px] font-bold uppercase tracking-widest text-gray-400">
-                <a href="#" class="hover:text-black">Docs</a>
-                <a href="#" class="hover:text-black">Privacy</a>
-                <a href="#" class="hover:text-black">Support</a>
+                <a href="#" class="hover:text-black">
+                    <span data-lang="en">Docs</span>
+                    <span data-lang="zh">文档</span>
+                </a>
+                <a href="#" class="hover:text-black">
+                    <span data-lang="en">Privacy</span>
+                    <span data-lang="zh">隐私</span>
+                </a>
+                <a href="#" class="hover:text-black">
+                    <span data-lang="en">Support</span>
+                    <span data-lang="zh">支持</span>
+                </a>
             </div>
         </div>
     </footer>
 
     <script>
+        // Language Switch Logic
+        function setLang(lang) {
+            document.documentElement.setAttribute('lang', lang);
+            document.querySelectorAll('.lang-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`btn-${lang}`).classList.add('active');
+            localStorage.setItem('preferred-lang', lang);
+        }
+
+        // Initialize from storage or browser
+        const savedLang = localStorage.getItem('preferred-lang') || 
+                         (navigator.language.startsWith('zh') ? 'zh' : 'en');
+        setLang(savedLang);
+
+        // Mascot Interaction
         const logo = document.getElementById('mainLogo');
         const assets = [
             { type: 'img', src: 'https://github.com/RandomCatUser/SweetVibe/blob/main/ReadmeAssests/image_a3b8a0.png?raw=true' },
@@ -250,6 +345,5 @@
             }, 1800);
         });
     </script>
-
 </body>
 </html>
