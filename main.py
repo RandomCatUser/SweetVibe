@@ -318,11 +318,11 @@ class KityPlayer:
             ax, ay = (w - aw) // 2, (h - ah) // 2
             self.draw_box(ax, ay, aw, ah, " ABOUT SWEETVIBE ", Screen.COLOUR_MAGENTA, rounded=True)
             about_lines = [
-                "SweetVibe TUI Player v1.1",
+                "SweetVibe - CozyUwU",
                 "Built with Asciimatics & FFmpeg",
                 "",
                 "A lightweight Terminal Music Player",
-                "featuring real-time CAVA-style visualizers.",
+                "Licensed under the Apache License 2.0",
                 "",
                 "--- CREDITS ---",
                 "Developed by: Dihan Ramanayaka",
@@ -330,7 +330,7 @@ class KityPlayer:
                 "Press any key to close."
             ]
             for i, line in enumerate(about_lines):
-                # Highlight credits line
+                # Highlight credits 
                 if "Dihan" in line:
                     color = Screen.COLOUR_YELLOW
                 elif line.startswith("---"):
