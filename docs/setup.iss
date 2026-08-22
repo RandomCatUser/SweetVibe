@@ -4,11 +4,11 @@
 #define MyAppVersion "1.0.0"
 #define MyAppPublisher "RandomCatUser"
 #define MyAppURL "https://github.com/RandomCatUser/SweetVibe"
-#define MyAppExeName "main.exe"
+#define MyAppExeName "SweetVibe.exe"
 #define MyIconName "ico.ico"
 
 [Setup]
-AppId={{8B1A2C3D-E4F5-4G6H-7I8J-9K0L1M2N3O4P}
+AppId={{8B1A2C3D-E4F5-4678-9ABC-DEF012345678}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
@@ -23,9 +23,9 @@ DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 AllowNoIcons=yes
 
-OutputDir=Output
+OutputDir=.
 OutputBaseFilename=SweetVibe_Setup
-SetupIconFile={#MyIconName}
+SetupIconFile=..\{#MyIconName}
 
 Compression=lzma2
 SolidCompression=yes
@@ -48,9 +48,10 @@ FinishedLabel=Setup has finished installing SweetVibe on your computer.#13#10#13
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; Flags: unchecked
 
 [Files]
-Source: "{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#MyIconName}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "songs\*"; DestDir: "{app}\songs"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\{#MyIconName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\keybindings.json"; DestDir: "{app}"; Flags: ignoreversion onlyifdoesntexist
+Source: "..\songs\*"; DestDir: "{app}\songs"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\{#MyIconName}"

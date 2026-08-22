@@ -1,0 +1,67 @@
+{
+    "up": [
+        "up"
+    ],
+    "down": [
+        "down"
+    ],
+    "enter": [
+        "enter"
+    ],
+    "back": [
+        "backspace",
+        "ctrl+b",
+        "esc"
+    ],
+    "play_pause": [
+        "space"
+    ],
+    "volume_up": [
+        "+",
+        "="
+    ],
+    "volume_down": [
+        "-",
+        "_"
+    ],
+    "seek_forward": [
+        "right"
+    ],
+    "seek_backward": [
+        "left"
+    ],
+    "mute": [
+        "m"
+    ],
+    "search": [
+        "ctrl+f",
+        "/"
+    ],
+    "open_path": [
+        "ctrl+o",
+        "p"
+    ],
+    "shuffle": [
+        "ctrl+e",
+        "s"
+    ],
+    "repeat": [
+        "r"
+    ],
+    "quit": [
+        "q",
+        "ctrl+c"
+    ],
+    "mode_switch": [
+        "tab"
+    ],
+    "toggle_mouse": [
+        "ctrl+m"
+    ],
+    "jump_music": [
+        "1"
+    ],
+    "jump_docs": [
+        "2"
+    ]
+}

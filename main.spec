@@ -1,12 +1,21 @@
 # -*- mode: python ; coding: utf-8 -*-
+from PyInstaller.utils.hooks import collect_all
 
+datas = []
+binaries = []
+hiddenimports = ['win32con', 'win32api', 'pywintypes']
+for package in ('asciimatics', 'tinytag', 'just_playback'):
+    package_datas, package_binaries, package_hiddenimports = collect_all(package)
+    datas += package_datas
+    binaries += package_binaries
+    hiddenimports += package_hiddenimports
 
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=[],
-    datas=[('songs', 'songs')],
-    hiddenimports=['_cffi_backend'],
+    binaries=binaries,
+    datas=datas,
+    hiddenimports=hiddenimports + ['_cffi_backend'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -22,7 +31,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='main',
+    name='SweetVibe',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

@@ -1,6 +1,6 @@
 
 #define MyAppName "SweetVibe"
-#define MyAppVersion "CozyUwU"
+#define MyAppVersion "1.0.1"
 #define MyAppPublisher "DihanRamanayaka"
 #define MyAppURL "https://github.com/RandomCatUser/SweetVibe"
 #define MyAppExeName "main.exe"
