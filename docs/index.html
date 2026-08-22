@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SweetVibe — Start listening with open models</title>
+    <title>SweetVibe — Ultra-lightweight CLI Audio Engine</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -18,7 +18,6 @@
 
         .mono { font-family: 'JetBrains Mono', monospace; }
 
-        /* Centered Layout Styles inspired by reference */
         .container-narrow {
             max-width: 800px;
             margin: 0 auto;
@@ -50,13 +49,14 @@
         .install-pill {
             background: #f4f4f5;
             border-radius: 99px;
-            padding: 8px 16px;
+            padding: 10px 24px;
             display: inline-flex;
             align-items: center;
             gap: 12px;
             font-size: 13px;
             font-family: 'JetBrains Mono', monospace;
             margin-bottom: 12px;
+            border: 1px solid #e4e4e7;
         }
 
         .integration-card {
@@ -107,158 +107,143 @@
         }
 
         .btn-black:hover { opacity: 0.8; }
-
-        .search-container { display: none; } /* Removed search bar as requested earlier */
     </style>
 </head>
 <body class="pt-20">
 
-    <!-- Hero Section -->
-    <section class="mb-32">
-        <div class="container-narrow text-center">
-            <div class="mascot-container">
-                <img src="https://github.com/RandomCatUser/SweetVibe/blob/main/ReadmeAssests/JUZyF-removebg-preview.png?raw=true" class="mascot-img" alt="SweetVibe Mascot">
+    <header class="fixed top-0 left-0 right-0 bg-white/80 backdrop-blur-md z-50 border-b border-gray-100">
+        <div class="max-w-5xl mx-auto px-6 h-16 flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <img src="https://raw.githubusercontent.com/RandomCatUser/SweetVibe/main/ReadmeAssests/JUZyF-removebg-preview.png" class="w-6 h-6 grayscale" alt="Logo" onerror="this.src='https://placehold.co/24x24/000000/FFFFFF?text=SV'">
+                <span class="text-xs font-bold uppercase tracking-widest text-black">SweetVibe</span>
             </div>
             
-            <h1 class="hero-title">Start building with<br>open music models</h1>
+            <!-- Language Switcher Bar -->
+            <div class="flex items-center bg-gray-100 p-1 rounded-full text-xs font-semibold">
+                <button onclick="switchLanguage('en')" id="lang-btn-en" class="px-3 py-1 rounded-full bg-black text-white transition-all">EN</button>
+                <button onclick="switchLanguage('ko')" id="lang-btn-ko" class="px-3 py-1 rounded-full text-gray-600 hover:text-black transition-all">KO</button>
+                <button onclick="switchLanguage('zh')" id="lang-btn-zh" class="px-3 py-1 rounded-full text-gray-600 hover:text-black transition-all">ZH</button>
+            </div>
+        </div>
+    </header>
+
+    <section class="mb-32 mt-12">
+        <div class="container-narrow text-center">
+            <div class="mascot-container">
+                <img src="https://raw.githubusercontent.com/RandomCatUser/SweetVibe/main/ReadmeAssests/JUZyF-removebg-preview.png" class="mascot-img" alt="SweetVibe Mascot" onerror="this.style.display='none'">
+            </div>
+            
+            <h1 class="hero-title" id="hero-title">Lightning-fast CLI audio.<br>Zero bulky models.</h1>
             
             <div class="flex flex-col items-center gap-4">
                 <div class="install-pill">
-                    <span class="text-gray-400">curl</span>
-                    <span>https://sweetvibe.sh/install.sh | sh</span>
-                    <i class="fa-regular fa-copy text-gray-300 cursor-pointer hover:text-black"></i>
+                    <i class="fa-solid fa-feather text-gray-400"></i>
+                    <span id="github-version-text" class="text-gray-800 font-medium">Fetching release info...</span>
                 </div>
                 <p class="text-[13px] text-gray-400">
-                    paste this in PowerShell, or <a href="https://github.com/RandomCatUser/SweetVibe/releases/download/v1.1.0/Setup.exe" class="underline hover:text-black">download for Windows</a>
+                    <span data-i18n="downloadSub">Ultra low footprint, instant execution</span>, 
+                    <a id="github-release-link" href="https://github.com/RandomCatUser/SweetVibe/releases/latest" target="_blank" class="underline hover:text-black font-semibold">
+                        <span data-i18n="downloadLink">download from GitHub</span>
+                    </a>
                 </p>
             </div>
         </div>
     </section>
 
-    <!-- Feature Section 1 -->
     <section class="mb-32">
         <div class="max-w-5xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
             <div>
                 <div class="flex gap-2 mb-6">
-                    <span class="bg-gray-100 px-3 py-1 rounded-full text-xs font-semibold">TUI</span>
-                    <span class="border border-gray-200 px-3 py-1 rounded-full text-xs font-semibold">Native</span>
+                    <span class="bg-gray-100 px-3 py-1 rounded-full text-xs font-semibold">CLI First</span>
+                    <span class="border border-gray-200 px-3 py-1 rounded-full text-xs font-semibold">Featherweight</span>
                 </div>
-                <h2 class="text-3xl font-bold mb-4 tracking-tight">Listen with open models</h2>
-                <p class="text-gray-500 mb-6 leading-relaxed">
-                    Launch SweetVibe, index your folders, and more — powered by the best local audio processing engines.
+                <h2 class="text-3xl font-bold mb-4 tracking-tight" data-i18n="featureTitle">Pure CLI power, no bloat</h2>
+                <p class="text-gray-500 mb-6 leading-relaxed" data-i18n="featureDesc">
+                    No heavy AI models to download or configure. SweetVibe is optimized for maximum speed and minimal memory footprint right from your terminal.
                 </p>
-                <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4 flex justify-between items-center">
-                    <span class="mono text-sm">vibe launch --local</span>
-                    <i class="fa-regular fa-copy text-gray-300"></i>
-                </div>
-                <a href="#" class="text-xs font-semibold underline">More integrations →</a>
+                
+                <a href="https://github.com/RandomCatUser/SweetVibe" target="_blank" class="text-xs font-semibold underline" data-i18n="moreIntegrations">View CLI docs →</a>
             </div>
             
-            <div class="window-preview">
-                <div class="bg-gray-50 px-4 py-3 border-b border-gray-200 flex gap-2">
-                    <div class="window-dot bg-red-300"></div>
-                    <div class="window-dot bg-yellow-300"></div>
-                    <div class="window-dot bg-green-300"></div>
-                </div>
-                <div class="p-6 mono text-[13px] space-y-4">
-                    <div class="flex justify-between items-center text-gray-400 border-b border-gray-100 pb-2">
-                        <span>sweetvibe-tui v1.1.0</span>
-                        <span>0:42 / 3:15</span>
-                    </div>
-                    <div class="text-black">Playing: After Dark - Mr. Kitty</div>
-                    <div class="w-full bg-gray-100 h-1 rounded-full overflow-hidden">
-                        <div class="bg-black h-full w-1/3"></div>
-                    </div>
-                    <div class="grid grid-cols-8 gap-1 h-12 items-end">
-                        <div class="bg-gray-100 h-4"></div>
-                        <div class="bg-gray-200 h-8"></div>
-                        <div class="bg-black h-12"></div>
-                        <div class="bg-black h-10"></div>
-                        <div class="bg-gray-200 h-6"></div>
-                        <div class="bg-gray-100 h-3"></div>
-                        <div class="bg-gray-200 h-7"></div>
-                        <div class="bg-black h-9"></div>
-                    </div>
-                </div>
+            <div>
+                <img src="./look.png" alt="look.png terminal window" class="w-full rounded-xl border border-gray-200 shadow-sm object-cover" onerror="this.src='https://placehold.co/600x350/ffffff/000000?text=sweetvibe-cli+v1.1.0'">
             </div>
         </div>
     </section>
 
-    <!-- Integrations Grid -->
     <section class="mb-48">
         <div class="max-w-5xl mx-auto px-6">
-            <h3 class="section-label uppercase tracking-widest">Core Capabilities</h3>
+            <h3 class="section-label uppercase tracking-widest" data-i18n="coreCapabilities">Engine Performance</h3>
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                 <div class="integration-card">
                     <div class="w-8 h-8 bg-orange-100 text-orange-600 rounded-lg flex items-center justify-center text-sm">
                         <i class="fa-solid fa-bolt"></i>
                     </div>
                     <div>
-                        <div class="text-sm font-bold">Fast Index</div>
+                        <div class="text-sm font-bold" data-i18n="cap1">Instant Boot</div>
                     </div>
                 </div>
                 <div class="integration-card">
                     <div class="w-8 h-8 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center text-sm">
-                        <i class="fa-solid fa-microchip"></i>
+                        <i class="fa-solid fa-feather"></i>
                     </div>
                     <div>
-                        <div class="text-sm font-bold">Low CPU</div>
+                        <div class="text-sm font-bold" data-i18n="cap2">Tiny Binary</div>
                     </div>
                 </div>
                 <div class="integration-card">
                     <div class="w-8 h-8 bg-purple-100 text-purple-600 rounded-lg flex items-center justify-center text-sm">
-                        <i class="fa-solid fa-sliders"></i>
+                        <i class="fa-solid fa-terminal"></i>
                     </div>
                     <div>
-                        <div class="text-sm font-bold">Configurable</div>
+                        <div class="text-sm font-bold" data-i18n="cap3">CLI Native</div>
                     </div>
                 </div>
                 <div class="integration-card">
                     <div class="w-8 h-8 bg-green-100 text-green-600 rounded-lg flex items-center justify-center text-sm">
-                        <i class="fa-solid fa-shield-halved"></i>
+                        <i class="fa-solid fa-ban"></i>
                     </div>
                     <div>
-                        <div class="text-sm font-bold">Private</div>
+                        <div class="text-sm font-bold" data-i18n="cap4">Zero Models</div>
                     </div>
                 </div>
             </div>
-            <a href="#" class="inline-block mt-8 text-xs font-semibold underline">View all →</a>
+            <a href="https://github.com/RandomCatUser/SweetVibe" target="_blank" class="inline-block mt-8 text-xs font-semibold underline" data-i18n="viewAll">View all benchmarks →</a>
         </div>
     </section>
 
-    <!-- Sign Up Account Area -->
     <section class="mb-40">
         <div class="max-w-5xl mx-auto px-6">
-            <div class="border border-gray-200 rounded-2xl p-12 flex flex-col md:row justify-between items-center gap-8">
+            <div class="border border-gray-200 rounded-2xl p-8 md:p-12 flex flex-col md:flex-row justify-between items-center gap-8">
                 <div>
-                    <h3 class="text-xl font-bold mb-4">Stay updated on SweetVibe</h3>
+                    <h3 class="text-xl font-bold mb-4" data-i18n="signupTitle">Stay updated on SweetVibe CLI</h3>
                     <ul class="text-sm text-gray-500 space-y-2 list-disc pl-4">
-                        <li>Receive updates when new models are released</li>
-                        <li>Access audio hardware tuning guides</li>
-                        <li>Customize & share your TUI themes</li>
+                        <li data-i18n="signupLi1">Get release notifications straight from GitHub</li>
+                        <li data-i18n="signupLi2">Terminal optimization & shortcut guides</li>
+                        <li data-i18n="signupLi3">Contribute to the open source core</li>
                     </ul>
                 </div>
                 <div>
-                    <button class="btn-black">Create account</button>
+                    <button class="btn-black" onclick="alertBox()" data-i18n="signupBtn">Subscribe updates</button>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Minimal Footer -->
     <footer class="py-20 border-t border-gray-100">
         <div class="max-w-5xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-8">
             <div class="flex items-center gap-3">
-                <img src="https://github.com/RandomCatUser/SweetVibe/blob/main/ReadmeAssests/JUZyF-removebg-preview.png?raw=true" class="w-6 h-6 grayscale" alt="Logo">
+                <img src="https://raw.githubusercontent.com/RandomCatUser/SweetVibe/main/ReadmeAssests/JUZyF-removebg-preview.png" class="w-6 h-6 grayscale" alt="Logo" onerror="this.style.display='none'">
                 <span class="text-xs font-bold uppercase tracking-widest text-gray-400">SweetVibe</span>
             </div>
             <div class="flex gap-8 text-[11px] font-bold uppercase tracking-widest text-gray-400">
-                <a href="https://github.com/RandomCatUser/SweetVibe/" class="hover:text-black">GitHub</a>
-                <a href="#" class="hover:text-black">Documentation</a>
-                <a href="#" class="hover:text-black">Privacy</a>
+                <a href="https://github.com/RandomCatUser/SweetVibe/" target="_blank" class="hover:text-black">GitHub</a>
+                <a href="https://github.com/RandomCatUser/SweetVibe/" target="_blank" class="hover:text-black" data-i18n="footerDocs">Documentation</a>
+                <a href="https://github.com/RandomCatUser/SweetVibe/" target="_blank" class="hover:text-black" data-i18n="footerPrivacy">Privacy</a>
             </div>
         </div>
     </footer>
 
+    <script src="./script.js"></script>
 </body>
 </html>

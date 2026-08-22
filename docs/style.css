@@ -1,0 +1,100 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #ffffff;
+            color: #000;
+            scroll-behavior: smooth;
+        }
+
+        .mono { font-family: 'JetBrains Mono', monospace; }
+
+        .container-narrow {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        .mascot-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 32px;
+        }
+
+        .mascot-img {
+            width: 80px;
+            height: auto;
+            filter: grayscale(1);
+            opacity: 0.8;
+        }
+
+        .hero-title {
+            font-size: 42px;
+            font-weight: 800;
+            line-height: 1.1;
+            letter-spacing: -0.04em;
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .install-pill {
+            background: #f4f4f5;
+            border-radius: 99px;
+            padding: 10px 24px;
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 13px;
+            font-family: 'JetBrains Mono', monospace;
+            margin-bottom: 12px;
+            border: 1px solid #e4e4e7;
+        }
+
+        .integration-card {
+            border: 1px solid #e4e4e7;
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .integration-card:hover {
+            background: #fafafa;
+            border-color: #d4d4d8;
+        }
+
+        .section-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #71717a;
+            margin-bottom: 24px;
+        }
+
+        .window-preview {
+            background: #ffffff;
+            border: 1px solid #e4e4e7;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
+            overflow: hidden;
+            width: 100%;
+        }
+
+        .window-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .btn-black {
+            background: #000;
+            color: #fff;
+            padding: 10px 24px;
+            border-radius: 99px;
+            font-weight: 600;
+            font-size: 14px;
+            transition: opacity 0.2s;
+        }
+
+        .btn-black:hover { opacity: 0.8; }
