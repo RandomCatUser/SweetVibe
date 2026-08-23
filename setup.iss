@@ -1,38 +1,31 @@
-
 #define MyAppName "SweetVibe"
-#define MyAppVersion "1.0.1"
+#define MyAppVersion "1.2.0"
 #define MyAppPublisher "DihanRamanayaka"
 #define MyAppURL "https://github.com/RandomCatUser/SweetVibe"
-#define MyAppExeName "main.exe"
+#define MyAppExeName "SweetVibe.exe"
 #define MyIconName "ico.ico"
+#define MyBuildDir "dist\SweetVibe"
 
 [Setup]
-AppId={{8B1A2C3D-E4F5-4G6H-7I8J-9K0L1M2N3O4P}
+AppId={{8B1A2C3D-E4F5-4A6B-8C9D-0E1F2A3B4C5D}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
-
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
-
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
-
 DisableProgramGroupPage=yes
 AllowNoIcons=yes
-
-OutputDir=Output
+OutputDir=dist\installer
 OutputBaseFilename=SweetVibe_Setup
 SetupIconFile={#MyIconName}
-
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
-
 AppMutex=SweetVibeAppMutex
 PrivilegesRequired=admin
-
 UsePreviousAppDir=yes
 UsePreviousTasks=yes
 
@@ -47,9 +40,8 @@ FinishedLabel=Setup has finished installing SweetVibe on your computer.#13#10#13
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; Flags: unchecked
 
 [Files]
-Source: "{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#MyBuildDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#MyIconName}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "songs\*"; DestDir: "{app}\songs"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\{#MyIconName}"
@@ -62,7 +54,6 @@ Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: no
 Type: filesandordirs; Name: "{app}\songs"
 
 [Code]
-
 function InitializeSetup(): Boolean;
 begin
   Result := True;
@@ -76,14 +67,10 @@ end;
 procedure CurPageChanged(CurPageID: Integer);
 begin
   if CurPageID = wpWelcome then
-  begin
     WizardForm.WelcomeLabel1.Caption := 'Welcome to SweetVibe';
-  end;
 
   if CurPageID = wpFinished then
-  begin
     WizardForm.FinishedLabel.Caption :=
       'SweetVibe has been installed successfully!' + #13#10 +
       'Click Finish to start enjoying your music.';
-  end;
 end;

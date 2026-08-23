@@ -9,6 +9,7 @@ for package in ('asciimatics', 'tinytag', 'just_playback'):
     datas += package_datas
     binaries += package_binaries
     hiddenimports += package_hiddenimports
+datas.append(('songs', 'songs'))
 
 a = Analysis(
     ['main.py'],
@@ -28,8 +29,7 @@ pyz = PYZ(a.pure)
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.datas,
+    [],
     [],
     name='SweetVibe',
     debug=False,
@@ -45,4 +45,15 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     icon=['ico.ico'],
+    contents_directory='.',
+)
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.datas,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    name='SweetVibe',
 )

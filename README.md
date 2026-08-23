@@ -26,6 +26,10 @@ If you want to run the script directly:
 2. Run the App:
 `python main.py`
 
+### Build Windows EXE
+
+Run `build.ps1` in PowerShell from the project folder. It creates the portable app in `dist\release\SweetVibe` and creates `dist\installer\SweetVibe_Setup.exe` when Inno Setup 6 is installed.
+
 
 ## Controls
 
