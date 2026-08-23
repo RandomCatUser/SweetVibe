@@ -195,6 +195,7 @@ class KityPlayer:
         self.kb_scroll = 0
         self.kb_capture = False
         self.kb_capture_action = None
+        self.kb_confirm_reset = False
 
         if self.audio_err:
             self.logs.append(f"Audio Init Err: {self.audio_err}")
@@ -289,6 +290,12 @@ class KityPlayer:
         except Exception as e:
             self.add_log(f"Save err: {str(e)[:30]}")
 
+    def reset_keybinds(self):
+        """Reset all keybinds to defaults and save."""
+        self.keybinds = {k: list(v) for k, v in DEFAULT_KEYBINDS.items()}
+        self.save_keybinds()
+        self.add_log("Keybinds reset to defaults")
+
     def add_keybind(self, action, key_str):
         """Bind key_str to action. Removes the key from any other action first."""
         if not key_str or not action:
@@ -312,6 +319,13 @@ class KityPlayer:
             self.add_log(f"Removed '{removed}' from {action}")
             self.save_keybinds()
 
+    def remove_keybind_at(self, action, idx):
+        """Remove a specific keybind at index idx from the given action."""
+        if action in self.keybinds and 0 <= idx < len(self.keybinds[action]):
+            removed = self.keybinds[action].pop(idx)
+            self.add_log(f"Removed '{removed}' from {action}")
+            self.save_keybinds()
+
     def get_action(self, key_str):
         if not key_str:
             return None
@@ -319,6 +333,31 @@ class KityPlayer:
             if key_str in keys:
                 return action
         return None
+
+    def format_key_display(self, key_str):
+        """Pretty-print a single key for display."""
+        if not key_str:
+            return ""
+        special_map = {
+            "up": "↑",
+            "down": "↓",
+            "left": "←",
+            "right": "→",
+            "space": "SPACE",
+            "enter": "ENTER",
+            "esc": "ESC",
+            "tab": "TAB",
+            "backspace": "BKSP",
+        }
+        if key_str in special_map:
+            return special_map[key_str]
+        return key_str.upper()
+
+    def format_keys_list(self, keys_list):
+        """Pretty-print a list of keys for display."""
+        if not keys_list:
+            return "(none)"
+        return "  ".join(self.format_key_display(k) for k in keys_list)
 
     # ----------------------------------------------------------------- scanning
     def count_audio_files(self, path, max_depth=2):
@@ -735,6 +774,27 @@ class KityPlayer:
         max_offset = max(0, len(self.display_playlist) - list_h)
         self.scroll_offset = max(0, min(self.scroll_offset, max_offset))
 
+    def get_footer_hint(self):
+        """Build a dynamic footer hint string based on current keybinds."""
+        def keys_for(action):
+            ks = self.keybinds.get(action, [])
+            if not ks:
+                return "NONE"
+            return "/".join(self.format_key_display(k) for k in ks[:2])
+
+        parts = [
+            f"[SHUF:{'ON' if self.shuffle else 'OFF'}]",
+            f"[LOOP:{'ON' if self.repeat else 'OFF'}]",
+            f"[MOUSE:{'ON' if self.mouse_enabled else 'OFF'}]",
+            f"[MODE:{self.mode}]",
+            f"| {keys_for('mode_switch')}:Mode",
+            f"{keys_for('back')}:Back",
+            f"{keys_for('search')}:Search",
+            f"{keys_for('open_path')}:Cmd",
+            f"{keys_for('quit')}:Quit",
+        ]
+        return " ".join(parts)
+
     def draw(self):
         w, h = self.screen.width, self.screen.height
         if w < 60 or h < 20:
@@ -803,7 +863,7 @@ class KityPlayer:
             padded_line = self.pad_text(f" {display_name}", avail_w)
             self.screen.print_at(padded_line, 1, top_y + 1 + i, color, attr, bg=bg)
 
-        # 2. SPECTRUM + LIVE CLOCK  (improved: 4 harmonics + bass beat + peaks)
+        # 2. SPECTRUM + LIVE CLOCK
         v_w = w - p_w - 1
         curr_time = datetime.now().strftime("%H:%M:%S")
         self.draw_box(p_w, top_y, v_w, main_h, " CAVA SPECTRUM ", Screen.COLOUR_BLUE)
@@ -833,14 +893,12 @@ class KityPlayer:
             else:
                 target = 0.0
 
-            # Asymmetric smoothing: fast rise, slow fall
             if target > self.target_bars[i]:
                 self.target_bars[i] = self.target_bars[i] * 0.3 + target * 0.7
             else:
                 self.target_bars[i] = self.target_bars[i] * 0.85 + target * 0.15
             self.last_bars[i] += (self.target_bars[i] - self.last_bars[i]) * 0.45
 
-            # Peak cap behavior: jump up instantly, gravity pulls down
             if self.last_bars[i] > self.peak_bars[i]:
                 self.peak_bars[i] = self.last_bars[i]
                 self.peak_vel[i] = 0.0
@@ -853,7 +911,6 @@ class KityPlayer:
 
             clamped = max(0, min(int(self.last_bars[i]), bar_area_h))
 
-            # Vertical color gradient: blue -> cyan -> green -> yellow -> red
             for bh in range(clamped):
                 ratio = bh / max(1, bar_area_h)
                 if   ratio < 0.20: color = Screen.COLOUR_BLUE
@@ -863,7 +920,6 @@ class KityPlayer:
                 else:              color = Screen.COLOUR_RED
                 self.screen.print_at("███", bar_x, top_y + main_h - 1 - bh, color)
 
-            # Falling peak cap
             peak_h = max(0, min(int(self.peak_bars[i]), bar_area_h))
             if peak_h > 0:
                 self.screen.print_at("▀▀▀", bar_x,
@@ -908,12 +964,9 @@ class KityPlayer:
         self.screen.print_at(f"ST : {'PLAY' if self.is_playing else 'IDLE'}",
                              w - k_w + 2, h - 5, Screen.COLOUR_WHITE)
 
-        footer = (f" [SHUF:{'ON' if self.shuffle else 'OFF'}] "
-                  f"[LOOP:{'ON' if self.repeat else 'OFF'}] "
-                  f"[MOUSE:{'ON' if self.mouse_enabled else 'OFF'}] "
-                  f"[MODE:{self.mode}] | TAB:Mode Ctrl+B:Back ^F:Search "
-                  f"^O:Cmd Q:Quit ")
-        self.screen.print_at(footer.center(w)[:w], 0, h - 1,
+        # DYNAMIC footer hint
+        footer = self.get_footer_hint()
+        self.screen.print_at(self.pad_text(footer, w)[:w], 0, h - 1,
                              Screen.COLOUR_BLACK, bg=Screen.COLOUR_WHITE)
 
         # ABOUT DIALOG
@@ -963,7 +1016,7 @@ class KityPlayer:
                 self.screen.print_at("█", px + 10 + self.get_display_width(display_input),
                                      py + 2, Screen.COLOUR_YELLOW)
 
-        # HELP MENU (Dynamic Multi-Page) -- reads self.keybinds live
+        # HELP MENU (Dynamic Multi-Page)
         if self.show_help:
             hw, hh = 66, 22
             hx, hy = (w - hw) // 2, max(0, (h - hh) // 2 - 1)
@@ -1027,13 +1080,17 @@ class KityPlayer:
                     (":update", "Download latest update"),
                     (":keybinds", "Open in-app keybind editor"),
                     ("", None),
-                    ("--- CONFIG ---", "HEADER"),
-                    ("Keybinds File", str(KEYBINDS_FILE)),
-                    ("Format", "action=key1,key2,key3"),
+                    ("--- KEYBIND EDITOR ---", "HEADER"),
+                    ("↑ / ↓", "Navigate list"),
+                    ("ENTER", "Bind a new key to selected action"),
+                    ("BKSP", "Remove last bound key from action"),
+                    ("D", "Delete last bound key from action"),
+                    ("R", "Reset ALL keybinds to defaults"),
+                    ("CTRL+B", "Close editor (Back)"),
                     ("", None),
-                    ("--- ABOUT ---", "HEADER"),
-                    ("Developer", "Dihan Ramanayaka"),
-                    ("License", "Apache 2.0")
+                    ("--- CONFIG ---", "HEADER"),
+                    ("Keybinds File", str(KEYBINDS_FILE).replace(str(Path.home()), "~")),
+                    ("Format", "action=key1,key2,key3"),
                 ]
             ]
 
@@ -1049,19 +1106,23 @@ class KityPlayer:
                                          Screen.COLOUR_CYAN, Screen.A_BOLD)
                 elif key == "":
                     continue
-                elif key.startswith(":") or key in ["Keybinds File", "Format", "Developer", "License"]:
-                    label = self.pad_text(key, 22)
-                    self.screen.print_at(label, hx + 4, y_pos, Screen.COLOUR_YELLOW)
-                    self.screen.print_at(f": {val}", hx + 28, y_pos, Screen.COLOUR_WHITE)
-                else:
+                elif key in self.keybinds:
                     # LIVE: read current bindings straight from self.keybinds
                     keys_list = self.keybinds.get(key, [])
-                    formatted_keys = " / ".join([k.upper() for k in keys_list]) if keys_list else "(none)"
+                    formatted_keys = self.format_keys_list(keys_list) if keys_list else "(none)"
                     label = self.pad_text(formatted_keys, 22)
                     self.screen.print_at(label, hx + 4, y_pos, Screen.COLOUR_YELLOW)
                     self.screen.print_at(f": {val}", hx + 28, y_pos, Screen.COLOUR_WHITE)
+                else:
+                    # Static text like ":help" or "↑ / ↓"
+                    label = self.pad_text(key, 22)
+                    self.screen.print_at(label, hx + 4, y_pos, Screen.COLOUR_YELLOW)
+                    self.screen.print_at(f": {val}", hx + 28, y_pos, Screen.COLOUR_WHITE)
 
-            self.screen.print_at("< Left / Right >".center(hw - 4),
+            back_keys = self.keybinds.get("back", [])
+            back_hint = self.format_key_display(back_keys[0]) if back_keys else "CTRL+B"
+            nav_hint = f"< Left / Right > to switch pages  |  {back_hint} to close"
+            self.screen.print_at(nav_hint.center(hw - 4),
                                  hx + 2, hy + hh - 1, Screen.COLOUR_WHITE, Screen.A_BOLD)
 
         # IN-APP KEYBIND EDITOR
@@ -1072,50 +1133,100 @@ class KityPlayer:
     def draw_keybind_editor(self):
         w, h = self.screen.width, self.screen.height
         ew = 72
-        eh = min(22, h - 4)
+        eh = 24
         ex = (w - ew) // 2
         ey = max(1, (h - eh) // 2)
 
-        title = (" KEYBIND EDITOR " if not self.kb_capture
-                 else f" CAPTURING KEY FOR: {self.kb_capture_action.upper()} ")
-        self.draw_box(ex, ey, ew, eh, title, Screen.COLOUR_YELLOW, rounded=True)
+        if self.kb_capture:
+            title = f" PRESS KEY FOR: {self.kb_capture_action.upper()} "
+            title_color = Screen.COLOUR_GREEN
+        elif self.kb_confirm_reset:
+            title = " CONFIRM RESET ALL? "
+            title_color = Screen.COLOUR_RED
+        else:
+            title = " KEYBIND EDITOR "
+            title_color = Screen.COLOUR_YELLOW
+
+        self.draw_box(ex, ey, ew, eh, title, title_color, rounded=True)
+
+        action_col_w = 20
+        keys_col_x = ex + 2 + action_col_w
+
+        if not self.kb_confirm_reset:
+            header_y = ey + 2
+            self.screen.print_at("ACTION", ex + 2, header_y, Screen.COLOUR_CYAN, Screen.A_BOLD)
+            self.screen.print_at("BOUND KEYS", keys_col_x, header_y, Screen.COLOUR_CYAN, Screen.A_BOLD)
+            sep = "─" * (ew - 4)
+            self.screen.print_at(sep, ex + 2, header_y + 1, Screen.COLOUR_BLUE, Screen.A_NORMAL)
 
         actions = list(self.keybinds.keys())
-        list_h = eh - 4
+        list_h = eh - 6
 
         if self.kb_index < self.kb_scroll:
             self.kb_scroll = self.kb_index
         elif self.kb_index >= self.kb_scroll + list_h:
             self.kb_scroll = self.kb_index - list_h + 1
 
-        for i in range(list_h):
-            idx = i + self.kb_scroll
-            if idx >= len(actions):
-                break
-            action = actions[idx]
-            keys = self.keybinds.get(action, [])
-            keys_str = " / ".join([k.upper() for k in keys]) if keys else "(none)"
-            is_sel = (idx == self.kb_index)
+        if self.kb_confirm_reset:
+            msg_lines = [
+                "",
+                "  This will erase ALL custom keybinds",
+                "  and restore the factory defaults.",
+                "",
+                "  This action CANNOT be undone.",
+                "",
+                f"  Press {self.format_key_display('enter')} to CONFIRM reset",
+                f"  Press {self.format_key_display('esc')} or CTRL+B to CANCEL",
+            ]
+            for i, line in enumerate(msg_lines):
+                self.screen.print_at(line.center(ew - 4), ex + 2, ey + 4 + i,
+                                     Screen.COLOUR_RED, Screen.A_BOLD)
+        else:
+            for i in range(list_h):
+                idx = i + self.kb_scroll
+                if idx >= len(actions):
+                    break
+                action = actions[idx]
+                keys = self.keybinds.get(action, [])
+                keys_str = self.format_keys_list(keys)
+                is_sel = (idx == self.kb_index)
 
-            y_pos = ey + 2 + i
-            action_label = self.pad_text(action, 22)
-            keys_label = self.truncate_text(keys_str, ew - 30)
-            line = f" {action_label} {keys_label}"
-            if is_sel:
-                self.screen.print_at(self.pad_text(line, ew - 2), ex + 1, y_pos,
-                                     Screen.COLOUR_BLACK, Screen.A_BOLD,
-                                     bg=Screen.COLOUR_YELLOW)
-            else:
-                self.screen.print_at(self.pad_text(line, ew - 2), ex + 1, y_pos,
-                                     Screen.COLOUR_WHITE)
+                y_pos = ey + 4 + i
+                
+                max_keys_w = ew - (keys_col_x - ex) - 2
+                keys_disp = self.truncate_text(keys_str, max_keys_w)
+                
+                if is_sel:
+                    act_part = self.pad_text(f" {action}", action_col_w)
+                    full_line = f"{act_part}{keys_disp}"
+                    full_line = self.pad_text(full_line, ew - 2)
+                    
+                    self.screen.print_at(full_line, ex + 1, y_pos,
+                                         Screen.COLOUR_BLACK, Screen.A_BOLD,
+                                         bg=Screen.COLOUR_YELLOW)
+                    self.screen.print_at(">", ex + 1, y_pos,
+                                         Screen.COLOUR_RED, Screen.A_BOLD,
+                                         bg=Screen.COLOUR_YELLOW)
+                else:
+                    act_part = self.pad_text(f" {action}", action_col_w)
+                    self.screen.print_at(act_part, ex + 1, y_pos, Screen.COLOUR_WHITE)
+                    self.screen.print_at(keys_disp, keys_col_x, y_pos, 
+                                         Screen.COLOUR_GREEN if keys else Screen.COLOUR_BLACK,
+                                         Screen.A_BOLD if keys else Screen.A_NORMAL)
 
         if self.kb_capture:
-            footer = " Press any key to bind it  |  ESC: cancel "
+            footer = " Press any key to bind  |  ESC/CTRL+B: Cancel  |  BKSP: Skip "
+        elif self.kb_confirm_reset:
+            footer = " ENTER: Confirm  |  ESC/CTRL+B: Cancel "
         else:
-            footer = (" Up/Down: navigate  ENTER: bind  BACKSPACE: remove last  "
-                      "ESC: close  (auto-saves to ~/.sweetvibe_keybinds) ")
+            footer = " \u2191/\u2193:Nav  ENT:Bind  BKSP:Remove  D:Delete  R:Reset  CNTRL+B:Back "
         self.screen.print_at(self.pad_text(footer, ew - 2), ex + 1, ey + eh - 1,
-                             Screen.COLOUR_CYAN, Screen.A_BOLD)
+                             Screen.COLOUR_BLACK, Screen.A_BOLD, bg=Screen.COLOUR_CYAN)
+
+        # Clean file path display for title bar
+        status = f" File: ~/{KEYBINDS_FILE.name} "
+        self.screen.print_at(status, ex + ew - self.get_display_width(status) - 2, ey,
+                             Screen.COLOUR_BLACK, Screen.A_NORMAL, bg=title_color)
 
 
 _shared_state = {}
@@ -1147,7 +1258,7 @@ def get_key_str(event):
         return f"ctrl+{chr(k + 96)}"
     if 32 <= k <= 126:
         return chr(k).lower()
-    return str(k)
+    return None  # Ignore unsupported keys
 
 
 def demo(screen):
@@ -1226,6 +1337,7 @@ def demo(screen):
                                     player.kb_index = 0
                                     player.kb_capture = False
                                     player.kb_capture_action = None
+                                    player.kb_confirm_reset = False
                                     player.add_log("Opened in-app keybind editor")
                                 else:
                                     player.add_log("Unknown command")
@@ -1262,37 +1374,69 @@ def demo(screen):
                 # ---- In-app keybind editor ----
                 elif player.show_keybind_editor:
                     if player.kb_capture:
-                        if key_str == "esc":
+                        if key_str in ["esc", "ctrl+b"]:
                             player.kb_capture = False
                             player.kb_capture_action = None
                             player.add_log("Cancelled key capture")
                         elif key_str == "backspace":
-                            # cancel capture rather than bind backspace
                             player.kb_capture = False
                             player.kb_capture_action = None
-                        else:
+                            player.add_log("Capture skipped")
+                        elif key_str:
                             player.add_keybind(player.kb_capture_action, key_str)
                             player.add_log(f"Bound '{key_str}' -> {player.kb_capture_action}")
                             player.kb_capture = False
                             player.kb_capture_action = None
+                        else:
+                            player.add_log("Unsupported key, try another")
+                            player.kb_capture = False
+                            player.kb_capture_action = None
+
+                    elif player.kb_confirm_reset:
+                        if key_str == "enter":
+                            player.reset_keybinds()
+                            player.kb_confirm_reset = False
+                            player.kb_index = 0
+                            player.add_log("Keybinds reset to defaults!")
+                        elif key_str in ["esc", "ctrl+b"]:
+                            player.kb_confirm_reset = False
+                            player.add_log("Reset cancelled")
+
                     else:
-                        if key_str == "esc":
-                            player.show_keybind_editor = False
-                        elif action == "up":
+                        if key_str in ["up"]:
                             player.kb_index = max(0, player.kb_index - 1)
-                        elif action == "down":
+                        elif key_str in ["down"]:
                             player.kb_index = min(len(player.keybinds) - 1, player.kb_index + 1)
-                        elif action == "enter":
+                        elif key_str in ["enter"]:
                             actions = list(player.keybinds.keys())
                             if 0 <= player.kb_index < len(actions):
                                 player.kb_capture = True
                                 player.kb_capture_action = actions[player.kb_index]
-                                player.add_log(
-                                    f"Press a key to bind to {player.kb_capture_action}")
+                                player.add_log(f"Press a key to bind to {player.kb_capture_action}")
                         elif key_str == "backspace":
                             actions = list(player.keybinds.keys())
                             if 0 <= player.kb_index < len(actions):
                                 player.remove_last_keybind(actions[player.kb_index])
+                        elif key_str == "d":
+                            actions = list(player.keybinds.keys())
+                            if 0 <= player.kb_index < len(actions):
+                                action = actions[player.kb_index]
+                                keys = player.keybinds.get(action, [])
+                                if not keys:
+                                    player.add_log(f"No keys to delete for {action}")
+                                elif len(keys) == 1:
+                                    player.remove_keybind_at(action, 0)
+                                else:
+                                    player.remove_keybind_at(action, len(keys) - 1)
+                        elif key_str == "r":
+                            player.kb_confirm_reset = True
+                            player.add_log("Reset? Press ENTER to confirm")
+                        elif key_str in ["esc", "ctrl+b"]:
+                            player.show_keybind_editor = False
+                            player.kb_capture = False
+                            player.kb_capture_action = None
+                            player.kb_confirm_reset = False
+                            player.add_log("Closed keybind editor")
 
                 # ---- Help modal ----
                 elif player.show_help:
@@ -1355,8 +1499,7 @@ def demo(screen):
                     elif action == "up":
                         player.current_index = max(0, player.current_index - 1)
                     elif action == "down":
-                        player.current_index = min(len(player.display_playlist) - 1,
-                                                    player.current_index + 1)
+                        player.current_index = min(len(player.display_playlist) - 1, player.current_index + 1)
                     elif action == "enter":
                         if 0 <= player.current_index < len(player.display_playlist):
                             item = player.display_playlist[player.current_index]
@@ -1365,7 +1508,7 @@ def demo(screen):
                             else:
                                 player.play_index(player.current_index)
 
-            # ---- End-of-track / repeat / auto-advance (robust) ----
+            # ---- End-of-track / repeat / auto-advance ----
             if player.is_playing and player.playback:
                 try:
                     elapsed = time.time() - player.start_time
@@ -1377,7 +1520,6 @@ def demo(screen):
                     except:
                         pass
 
-                    # 1) just_playback's "active" flag (sometimes lags)
                     ended = False
                     try:
                         if not player.playback.active:
@@ -1385,7 +1527,6 @@ def demo(screen):
                     except:
                         pass
 
-                    # 2) Fallback: position vs duration (fixes repeat not triggering)
                     if not ended and track_dur > 0:
                         curr_pos = 0
                         try:
@@ -1399,7 +1540,6 @@ def demo(screen):
                             ended = True
 
                     if ended and elapsed > 1.0:
-                        # Looks like a premature crash
                         if track_dur > 0 and elapsed < track_dur - 2.0:
                             player.add_log(f"Crashed at {int(elapsed)}s")
                             player.stop()
@@ -1407,10 +1547,8 @@ def demo(screen):
                             if not player.display_playlist:
                                 player.stop()
                             else:
-                                # repeat -> same track, else next (wraps)
                                 next_idx = (player.current_index if player.repeat
-                                            else (player.current_index + 1)
-                                            % len(player.display_playlist))
+                                            else (player.current_index + 1) % len(player.display_playlist))
                                 attempts = 0
                                 found = False
                                 while attempts < len(player.display_playlist):
