@@ -25,6 +25,9 @@ except ImportError:
     sys.exit(1)
 
 AUDIO_EXTS = {'.mp3', '.wav', '.flac', '.m4a', '.ogg', '.opus', '.aac'}
+CURRENT_VERSION = "1.2.1"
+RELEASES_API_URL = "https://api.github.com/repos/RandomCatUser/SweetVibe/releases/latest"
+INSTALLER_ASSET_NAME = "Setup_Windows_x64.exe"
 
 APP_DIR = Path(sys.executable).resolve().parent if getattr(sys, 'frozen', False) else Path(__file__).resolve().parent
 if getattr(sys, 'frozen', False) and not (APP_DIR / "songs").exists():
@@ -94,25 +97,34 @@ def print_goodbye():
 
 
 def check_for_updates_async(player):
-    """Background thread to check GitHub for the latest commit."""
+    """Background thread to check GitHub for the latest published release."""
     try:
-        url = "https://api.github.com/repos/RandomCatUser/SweetViben/commits/main"
-        req = urllib.request.Request(url, headers={'User-Agent': 'SweetVibe-Player'})
+        req = urllib.request.Request(RELEASES_API_URL,
+                                     headers={'User-Agent': 'SweetVibe-Player'})
         with urllib.request.urlopen(req, timeout=3) as response:
             data = json.loads(response.read().decode())
-            latest_sha = data['sha']
+        latest_version = data.get('tag_name', '').strip()
+        if not latest_version:
+            return
 
-        local_sha = "none"
+        local_version = CURRENT_VERSION
         ver_file = Path.home() / ".sweetvibe_version"
         if ver_file.exists():
-            local_sha = ver_file.read_text().strip()
+            stored_version = ver_file.read_text(encoding="utf-8").strip()
+            if stored_version:
+                local_version = stored_version
 
-        if local_sha != latest_sha:
+        def version_key(version):
+            return tuple(int(part) for part in version.lstrip("vV").split(".")
+                         if part.isdigit())
+
+        if version_key(latest_version) > version_key(local_version):
             player.update_available = True
-            player.latest_sha = latest_sha
-            player.add_log("Update available! Type :update in cmd bar.")
+            player.latest_version = latest_version
+            player.latest_release_url = data.get('html_url', '')
+            player.add_log(f"Update available: {latest_version}. Type :update in cmd bar.")
         else:
-            player.add_log("SweetVibe is up to date.")
+            player.add_log(f"SweetVibe is up to date ({local_version}).")
     except Exception:
         pass
 
@@ -143,7 +155,8 @@ class KityPlayer:
         self.scan_thread = None
 
         self.update_available = False
-        self.latest_sha = ""
+        self.latest_version = ""
+        self.latest_release_url = ""
         threading.Thread(target=check_for_updates_async, args=(self,), daemon=True).start()
 
         self.keybinds = self.load_keybinds()
@@ -459,35 +472,44 @@ class KityPlayer:
         self.scan_thread.start()
 
     def perform_update(self):
-        self.add_log("Downloading update...")
+        self.add_log(f"Downloading {INSTALLER_ASSET_NAME}...")
         try:
-            contents_url = "https://api.github.com/repos/RandomCatUser/SweetViben/contents/"
-            req = urllib.request.Request(contents_url, headers={'User-Agent': 'SweetVibe-Player'})
+            req = urllib.request.Request(RELEASES_API_URL,
+                                         headers={'User-Agent': 'SweetVibe-Player'})
             with urllib.request.urlopen(req, timeout=5) as response:
-                contents = json.loads(response.read().decode())
-            raw_url = None
-            for item in contents:
-                if item['name'].endswith('.py'):
-                    if item['name'] == Path(sys.argv[0]).name:
-                        raw_url = item['download_url']
-                        break
-            if not raw_url:
-                for item in contents:
-                    if item['name'].endswith('.py'):
-                        raw_url = item['download_url']
-                        break
-            if raw_url:
-                req = urllib.request.Request(raw_url, headers={'User-Agent': 'SweetVibe-Player'})
-                with urllib.request.urlopen(req, timeout=10) as response:
-                    new_code = response.read().decode()
-                current_file = Path(sys.argv[0]).resolve()
-                current_file.write_text(new_code)
-                ver_file = Path.home() / ".sweetvibe_version"
-                ver_file.write_text(self.latest_sha)
-                self.add_log("Update successful! Restarting...")
-                os.execv(sys.executable, [sys.executable] + sys.argv)
+                release = json.loads(response.read().decode())
+
+            release_version = release.get('tag_name', '').strip()
+            asset = next((item for item in release.get('assets', [])
+                          if item.get('name') == INSTALLER_ASSET_NAME), None)
+            if not asset or not asset.get('browser_download_url'):
+                self.add_log(f"Release has no {INSTALLER_ASSET_NAME} asset")
+                return False
+
+            download_dir = Path.home() / "Downloads"
+            download_dir.mkdir(parents=True, exist_ok=True)
+            installer_path = download_dir / INSTALLER_ASSET_NAME
+            partial_path = installer_path.with_suffix(".download")
+            download_req = urllib.request.Request(
+                asset['browser_download_url'],
+                headers={'User-Agent': 'SweetVibe-Player'})
+            with urllib.request.urlopen(download_req, timeout=60) as response:
+                with partial_path.open("wb") as installer_file:
+                    while chunk := response.read(1024 * 1024):
+                        installer_file.write(chunk)
+            partial_path.replace(installer_path)
+
+            ver_file = Path.home() / ".sweetvibe_version"
+            ver_file.write_text(release_version, encoding="utf-8")
+            self.update_available = False
+            self.add_log(f"Downloaded update to {installer_path}")
+            if os.name == "nt":
+                os.startfile(str(installer_path))
+                return True
+            self.add_log("Installer can only be launched on Windows")
         except Exception as e:
             self.add_log(f"Update failed: {str(e)[:20]}")
+        return False
 
     def update_file_list(self):
         try:
@@ -1329,7 +1351,9 @@ def demo(screen):
                                     player.show_about = True
                                 elif cmd == ":update":
                                     if player.update_available:
-                                        player.perform_update()
+                                        if player.perform_update():
+                                            player.stop()
+                                            raise QuitApplication()
                                     else:
                                         player.add_log("No updates available.")
                                 elif cmd == ":keybinds":
