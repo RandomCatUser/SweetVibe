@@ -13,7 +13,7 @@ import urllib.request
 from pathlib import Path
 from datetime import datetime
 
-# Dependencies: pip install asciimatics tinytag just_playback numpy soundfile
+# Dependencies: pip install asciimatics tinytag just_playback
 try:
     from asciimatics.screen import Screen
     from asciimatics.exceptions import ResizeScreenError
@@ -21,20 +21,11 @@ try:
     from tinytag import TinyTag
     from just_playback import Playback
 except ImportError:
-    print("Missing core dependencies. Please run: pip install asciimatics tinytag just_playback")
+    print("Missing dependencies. Please run: pip install asciimatics tinytag just_playback")
     sys.exit(1)
 
-# Optional dependencies for real audio-reactive spectrum
-try:
-    import numpy as np
-    import soundfile as sf
-    HAS_AUDIO_ANALYSIS = True
-except ImportError:
-    HAS_AUDIO_ANALYSIS = False
-    print("Tip: Install numpy & soundfile (pip install numpy soundfile) for a real audio-reactive spectrum.")
-
 AUDIO_EXTS = {'.mp3', '.wav', '.flac', '.m4a', '.ogg', '.opus', '.aac'}
-CURRENT_VERSION = "1.3.1"
+CURRENT_VERSION = "1.2.1"
 RELEASES_API_URL = "https://api.github.com/repos/RandomCatUser/SweetVibe/releases/latest"
 INSTALLER_ASSET_NAME = "Setup_Windows_x64.exe"
 
@@ -46,44 +37,6 @@ if getattr(sys, 'frozen', False) and not (APP_DIR / "songs").exists():
 
 # Keybinds file: hidden plain-text file in the user's home dir (NO JSON)
 KEYBINDS_FILE = Path.home() / ".sweetvibe_keybinds"
-
-# Spectrum modes
-SPECTRUM_AUTO = "auto"
-SPECTRUM_REACTIVE = "reactive"
-SPECTRUM_SCRIPT = "script"
-
-# Color map for custom spectrum colors
-COLOR_MAP = {
-    "black": Screen.COLOUR_BLACK,
-    "red": Screen.COLOUR_RED,
-    "green": Screen.COLOUR_GREEN,
-    "yellow": Screen.COLOUR_YELLOW,
-    "blue": Screen.COLOUR_BLUE,
-    "magenta": Screen.COLOUR_MAGENTA,
-    "cyan": Screen.COLOUR_CYAN,
-    "white": Screen.COLOUR_WHITE
-}
-
-DEFAULT_COLORS = {
-    "color_1": "blue",
-    "color_2": "cyan",
-    "color_3": "green",
-    "color_4": "yellow",
-    "color_5": "red"
-}
-
-# Map to convert pretty-printed keys back to raw strings if the file was manually edited
-PRETTY_TO_RAW = {
-    "↑": "up",
-    "↓": "down",
-    "←": "left",
-    "→": "right",
-    "SPACE": "space",
-    "ENTER": "enter",
-    "ESC": "esc",
-    "TAB": "tab",
-    "BKSP": "backspace",
-}
 
 # Default keybindings.
 DEFAULT_KEYBINDS = {
@@ -206,14 +159,7 @@ class KityPlayer:
         self.latest_release_url = ""
         threading.Thread(target=check_for_updates_async, args=(self,), daemon=True).start()
 
-        # Settings state - must be set before load_keybinds
-        self.spectrum_mode = SPECTRUM_AUTO
-        self.custom_colors = DEFAULT_COLORS.copy()
         self.keybinds = self.load_keybinds()
-        
-        # Settings menu tab and cursor state
-        self.settings_tab = 0  # 0 = Keybinds, 1 = Colors
-        self.color_index = 0
 
         try:
             self.playback = Playback()
@@ -240,19 +186,11 @@ class KityPlayer:
         self.peak_vel = [0.0] * self.fixed_bar_count
         self.smoothing = 0.15
 
-        # Audio Analysis State
-        self.raw_spectrum = [0.0] * self.fixed_bar_count
-        self.sf_file = None
-        self.sf_lock = threading.Lock()
-        self.spectrum_thread = threading.Thread(target=self.spectrum_loop, daemon=True)
-        self.spectrum_thread.start()
-
-        # Improved Cute Cat ASCII Art
         self.cat_frames = [
-            '   /\\_/\\ \n  ( o.o )\n  (")_(")',
-            '   /\\_/\\ \n  ( -.- )\n  (")_(")',
-            '   /\\_/\\ \n  ( ^.^ )\n  (")_(")',
-            '   /\\_/\\ \n  ( >.< )\n  (")_(")'
+            "  /\\_/\\  \n ( ^.^ ) \n  > o <  ",
+            "  /\\_/\\  \n ( -.- ) \n  > o <  ",
+            "  /\\_/\\  \n ( >.< ) \n  > v <  ",
+            "  /\\_/\\  \n ( @.@ ) \n  > w <  "
         ]
         self.cat_idx = 0
         self.last_cat_update = time.time()
@@ -264,8 +202,8 @@ class KityPlayer:
         self.show_about = False
         self.logs = ["System Booted Successfully", "Welcome to SweetVibe"]
 
-        # In-app settings panel state
-        self.show_settings = False
+        # In-app keybind editor state
+        self.show_keybind_editor = False
         self.kb_index = 0
         self.kb_scroll = 0
         self.kb_capture = False
@@ -278,8 +216,6 @@ class KityPlayer:
         self.update_file_list()
         self.add_log(f"Scanned: {len(self.all_items)} items")
         self.add_log(f"Keybinds file: {KEYBINDS_FILE}")
-        if not HAS_AUDIO_ANALYSIS:
-            self.add_log("Tip: Install numpy & soundfile for reactive spectrum")
 
     # ----------------------------------------------------------------- helpers
     def get_display_width(self, text):
@@ -313,45 +249,26 @@ class KityPlayer:
             return text
         return text + (" " * (total_width - current_w))
 
-    # ----------------------------------------------------------------- settings
+    # ----------------------------------------------------------------- keybinds
     def load_keybinds(self):
-        """Loads keybinds and settings from a plain-text file at ~/.sweetvibe_keybinds."""
+        """Loads keybinds from a plain-text file at ~/.sweetvibe_keybinds.
+        Format: action=key1,key2,key3  (one per line, # = comment)."""
         if not KEYBINDS_FILE.exists():
             self.save_keybinds_default()
             return DEFAULT_KEYBINDS
         try:
             data = {}
-            settings = {}
             for line in KEYBINDS_FILE.read_text(encoding="utf-8", errors="ignore").splitlines():
                 line = line.strip()
                 if not line or line.startswith("#"):
                     continue
-                # Settings lines start with $                 if line.startswith("$"):
-                    setting_line = line[1:]
-                    if "=" not in setting_line:
-                        continue
-                    name, _, value = setting_line.partition("=")
-                    settings[name.strip()] = value.strip()
-                    continue
                 if "=" not in line:
                     continue
                 action, _, keys_str = line.partition("=")
-                action = action.strip().lower()
-                raw_keys = [k.strip() for k in keys_str.split(",") if k.strip()]
-                
-                # Sanitize keys to raw format in case pretty-printed values were saved manually
-                clean_keys = []
-                for k in raw_keys:
-                    if k in PRETTY_TO_RAW:
-                        clean_keys.append(PRETTY_TO_RAW[k])
-                    elif k.upper() in PRETTY_TO_RAW:
-                        clean_keys.append(PRETTY_TO_RAW[k.upper()])
-                    else:
-                        clean_keys.append(k.lower())
-                
-                if action and clean_keys:
-                    data[action] = clean_keys
-                    
+                action = action.strip()
+                keys = [k.strip() for k in keys_str.split(",") if k.strip()]
+                if action and keys:
+                    data[action] = keys
             # Drop deprecated entries from older versions
             for deprecated in ["help", "about", "update"]:
                 if deprecated in data:
@@ -359,29 +276,15 @@ class KityPlayer:
             # Merge with defaults so newly-added actions still appear
             merged = DEFAULT_KEYBINDS.copy()
             merged.update(data)
-            
-            # Load spectrum_mode setting
-            if "spectrum_mode" in settings:
-                if settings["spectrum_mode"] in [SPECTRUM_AUTO, SPECTRUM_REACTIVE, SPECTRUM_SCRIPT]:
-                    self.spectrum_mode = settings["spectrum_mode"]
-            # Load color settings
-            for c_key in DEFAULT_COLORS:
-                if c_key in settings and settings[c_key] in COLOR_MAP:
-                    self.custom_colors[c_key] = settings[c_key]
-                    
             return merged
         except Exception:
             return DEFAULT_KEYBINDS
 
     def save_keybinds_default(self):
-        """Write the default keybinds and settings to the local file."""
+        """Write the default keybinds to the local file."""
         try:
             lines = ["# SweetVibe keybindings - format: action=key1,key2,key3",
-                     "# Settings lines start with $: $setting_name=value",
-                     "# Edit inside the app with the :settings command.",
-                     f"$spectrum_mode={SPECTRUM_AUTO}"]
-            for c_key, c_val in DEFAULT_COLORS.items():
-                lines.append(f"${c_key}={c_val}")
+                     "# Edit inside the app with the :keybinds command."]
             for action, keys in DEFAULT_KEYBINDS.items():
                 lines.append(f"{action}={','.join(keys)}")
             KEYBINDS_FILE.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -389,40 +292,27 @@ class KityPlayer:
             pass
 
     def save_keybinds(self):
-        """Save current in-memory keybinds and settings to the local file."""
+        """Save current in-memory keybinds to the local file."""
         try:
             lines = ["# SweetVibe keybindings - format: action=key1,key2,key3",
-                     "# Settings lines start with $: $setting_name=value",
-                     "# Edit inside the app with the :settings command.",
-                     f"$spectrum_mode={self.spectrum_mode}"]
-            for c_key, c_val in self.custom_colors.items():
-                lines.append(f"${c_key}={c_val}")
+                     "# Edit inside the app with the :keybinds command."]
             for action, keys in self.keybinds.items():
                 lines.append(f"{action}={','.join(keys)}")
             KEYBINDS_FILE.write_text("\n".join(lines) + "\n", encoding="utf-8")
-            self.add_log("Saved settings locally")
+            self.add_log("Saved keybinds locally")
         except Exception as e:
             self.add_log(f"Save err: {str(e)[:30]}")
 
     def reset_keybinds(self):
-        """Reset all keybinds and settings to defaults and save."""
+        """Reset all keybinds to defaults and save."""
         self.keybinds = {k: list(v) for k, v in DEFAULT_KEYBINDS.items()}
-        self.spectrum_mode = SPECTRUM_AUTO
-        self.custom_colors = DEFAULT_COLORS.copy()
-        self.settings_tab = 0
-        self.kb_index = 0
-        self.color_index = 0
-        self.kb_scroll = 0
         self.save_keybinds()
-        self.add_log("Settings reset to defaults")
+        self.add_log("Keybinds reset to defaults")
 
     def add_keybind(self, action, key_str):
         """Bind key_str to action. Removes the key from any other action first."""
         if not key_str or not action:
             return
-        # Sanitize the key string just in case
-        key_str = PRETTY_TO_RAW.get(key_str, key_str.lower())
-        
         # Remove the key from other actions to avoid conflicts
         for act, keys in list(self.keybinds.items()):
             if act == action:
@@ -481,33 +371,6 @@ class KityPlayer:
         if not keys_list:
             return "(none)"
         return "  ".join(self.format_key_display(k) for k in keys_list)
-
-    def cycle_spectrum_mode(self):
-        """Cycle through spectrum modes: Auto -> Reactive -> Script -> Auto."""
-        modes = [SPECTRUM_AUTO, SPECTRUM_REACTIVE, SPECTRUM_SCRIPT]
-        try:
-            idx = modes.index(self.spectrum_mode)
-        except ValueError:
-            idx = 0
-        self.spectrum_mode = modes[(idx + 1) % len(modes)]
-        self.save_keybinds()
-
-        # If switching to a reactive-capable mode and a song is playing, ensure SoundFile is open
-        if self.spectrum_mode in [SPECTRUM_AUTO, SPECTRUM_REACTIVE] and HAS_AUDIO_ANALYSIS:
-            if self.is_playing and self.current_filepath and not self.sf_file:
-                try:
-                    with self.sf_lock:
-                        if self.sf_file:
-                            self.sf_file.close()
-                        self.sf_file = sf.SoundFile(str(self.current_filepath))
-                except Exception:
-                    pass
-
-        mode_name = self.spectrum_mode.upper()
-        if self.spectrum_mode == SPECTRUM_REACTIVE and not HAS_AUDIO_ANALYSIS:
-            self.add_log(f"Spectrum: {mode_name} (numpy/soundfile missing, script fallback)")
-        else:
-            self.add_log(f"Spectrum Mode: {mode_name}")
 
     # ----------------------------------------------------------------- scanning
     def count_audio_files(self, path, max_depth=2):
@@ -799,17 +662,6 @@ class KityPlayer:
                 self.playback.seek(self.elapsed_at_pause)
             self.is_playing = True
             self.start_time = time.time() - self.elapsed_at_pause
-            
-            # Open audio file for background spectrum analysis
-            if HAS_AUDIO_ANALYSIS:
-                with self.sf_lock:
-                    if self.sf_file:
-                        self.sf_file.close()
-                    try:
-                        self.sf_file = sf.SoundFile(str(filepath))
-                    except Exception:
-                        self.sf_file = None
-
             # reset peak markers when a new track starts
             self.peak_bars = [0.0] * self.fixed_bar_count
             self.peak_vel = [0.0] * self.fixed_bar_count
@@ -869,11 +721,6 @@ class KityPlayer:
         if reset_seek:
             self.elapsed_at_pause = 0
             self.current_filepath = None
-            if HAS_AUDIO_ANALYSIS:
-                with self.sf_lock:
-                    if self.sf_file:
-                        self.sf_file.close()
-                        self.sf_file = None
 
     def toggle_pause(self):
         if not self.playback:
@@ -922,72 +769,6 @@ class KityPlayer:
         except:
             pass
 
-    # ----------------------------------------------------------------- spectrum
-    def spectrum_loop(self):
-        """Background thread to calculate FFT for the real visualizer."""
-        while True:
-            time.sleep(0.033) # ~30 FPS
-            if not HAS_AUDIO_ANALYSIS:
-                continue
-
-            # Skip FFT if user explicitly chose script-only mode
-            if self.spectrum_mode == SPECTRUM_SCRIPT:
-                self.raw_spectrum = [0.0] * self.fixed_bar_count
-                continue
-                
-            with self.sf_lock:
-                if not self.is_playing or not self.sf_file:
-                    self.raw_spectrum = [0.0] * self.fixed_bar_count
-                    continue
-                
-                try:
-                    current_elapsed = time.time() - self.start_time
-                    target_frame = int(current_elapsed * self.sf_file.samplerate)
-                    
-                    # Sync file pointer if drift occurs (e.g. after seeking)
-                    if abs(self.sf_file.tell() - target_frame) > self.sf_file.samplerate * 0.5:
-                        self.sf_file.seek(target_frame)
-                        
-                    chunk = 2048
-                    samples = self.sf_file.read(chunk, dtype='float32')
-                    
-                    if len(samples) == 0:
-                        self.raw_spectrum = [0.0] * self.fixed_bar_count
-                        continue
-                        
-                    if samples.ndim > 1:
-                        samples = samples.mean(axis=1)
-                        
-                    # Apply Hanning window for smoother FFT
-                    samples = samples * np.hanning(len(samples))
-                    
-                    # Perform Real FFT
-                    fft_data = np.fft.rfft(samples)
-                    magnitudes = np.abs(fft_data)[:len(fft_data)//2]
-                    
-                    new_targets = [0.0] * self.fixed_bar_count
-                    if len(magnitudes) > 2:
-                        # Logarithmic bin mapping for organic look
-                        start_bin = 2
-                        max_bin = len(magnitudes)
-                        bins = np.logspace(np.log2(start_bin), np.log2(max_bin), self.fixed_bar_count + 1, base=2.0).astype(int)
-                        
-                        for i in range(self.fixed_bar_count):
-                            s_idx = bins[i]
-                            e_idx = bins[i+1]
-                            if e_idx > s_idx:
-                                # Use max magnitude in the bin range
-                                val = np.max(magnitudes[s_idx:e_idx])
-                            else:
-                                val = 0.0
-                            # Normalize and apply slight amplification
-                            normalized = val / (chunk * 0.2)
-                            new_targets[i] = max(0.0, min(1.0, normalized))
-                            
-                    self.raw_spectrum = new_targets
-                except Exception:
-                    pass
-
     # ----------------------------------------------------------------- drawing
     def draw_box(self, x, y, w, h, title="", color=Screen.COLOUR_WHITE,
                  attr=Screen.A_BOLD, rounded=False, clear=True, bg=Screen.COLOUR_BLACK):
@@ -1035,15 +816,6 @@ class KityPlayer:
             f"{keys_for('quit')}:Quit",
         ]
         return " ".join(parts)
-
-    def get_spectrum_mode_str(self):
-        """Get a short display string for the current spectrum mode."""
-        if self.spectrum_mode == SPECTRUM_AUTO:
-            return "AUTO"
-        elif self.spectrum_mode == SPECTRUM_REACTIVE:
-            return "REACTIVE" if HAS_AUDIO_ANALYSIS else "REACT*"
-        else:
-            return "SCRIPT"
 
     def draw(self):
         w, h = self.screen.width, self.screen.height
@@ -1116,8 +888,7 @@ class KityPlayer:
         # 2. SPECTRUM + LIVE CLOCK
         v_w = w - p_w - 1
         curr_time = datetime.now().strftime("%H:%M:%S")
-        spec_mode_str = self.get_spectrum_mode_str()
-        self.draw_box(p_w, top_y, v_w, main_h, f" SPECTRUM [{spec_mode_str}] ", Screen.COLOUR_BLUE)
+        self.draw_box(p_w, top_y, v_w, main_h, " CAVA SPECTRUM ", Screen.COLOUR_BLUE)
         self.screen.print_at(f"[ {curr_time} ]", p_w + v_w - 12, top_y,
                              Screen.COLOUR_CYAN, Screen.A_BOLD, bg=Screen.COLOUR_BLUE)
 
@@ -1125,20 +896,12 @@ class KityPlayer:
         bar_step = max(3, (v_w - 6) // self.fixed_bar_count)
         t = time.time()
 
-        # Resolve custom colors
-        c1 = COLOR_MAP.get(self.custom_colors["color_1"], Screen.COLOUR_BLUE)
-        c2 = COLOR_MAP.get(self.custom_colors["color_2"], Screen.COLOUR_CYAN)
-        c3 = COLOR_MAP.get(self.custom_colors["color_3"], Screen.COLOUR_GREEN)
-        c4 = COLOR_MAP.get(self.custom_colors["color_4"], Screen.COLOUR_YELLOW)
-        c5 = COLOR_MAP.get(self.custom_colors["color_5"], Screen.COLOUR_RED)
-
         for i in range(self.fixed_bar_count):
             bar_x = p_w + 3 + (i * bar_step)
             if bar_x + 3 >= w - 1:
                 break
 
             if self.is_playing:
-                # Original Wave Style Math
                 w1 = math.sin(t * 7.0  + i * 0.35) * 0.32
                 w2 = math.sin(t * 3.6  - i * 0.20) * 0.22
                 w3 = math.sin(t * 11.5 + i * 0.55) * 0.14
@@ -1147,24 +910,11 @@ class KityPlayer:
                 pos_factor = i / max(1, self.fixed_bar_count - 1)
                 taper       = math.sin(pos_factor * math.pi) * 0.45 + 0.55
                 bass_weight = 1.0 - pos_factor * 0.35
-                wave_motion = (w1 + w2 + w3 + w4 + beat)
-
-                # Determine if we should blend in real audio data
-                use_reactive = (self.spectrum_mode != SPECTRUM_SCRIPT and
-                                HAS_AUDIO_ANALYSIS and self.sf_file is not None)
-
-                if use_reactive:
-                    # Blend the exact wave style with real audio data
-                    audio_val = self.raw_spectrum[i]
-                    raw = (wave_motion * 0.4 + audio_val * 3.0) * bar_area_h * taper * bass_weight
-                else:
-                    raw = wave_motion * bar_area_h * taper * bass_weight
-                    
+                raw    = (w1 + w2 + w3 + w4 + beat) * bar_area_h * taper * bass_weight
                 target = max(0.0, min(raw, bar_area_h))
             else:
                 target = 0.0
 
-            # Original Smoothing
             if target > self.target_bars[i]:
                 self.target_bars[i] = self.target_bars[i] * 0.3 + target * 0.7
             else:
@@ -1183,14 +933,13 @@ class KityPlayer:
 
             clamped = max(0, min(int(self.last_bars[i]), bar_area_h))
 
-            # Apply Custom Color Mapping & Drawing Style
             for bh in range(clamped):
                 ratio = bh / max(1, bar_area_h)
-                if   ratio < 0.20: color = c1
-                elif ratio < 0.40: color = c2
-                elif ratio < 0.60: color = c3
-                elif ratio < 0.80: color = c4
-                else:              color = c5
+                if   ratio < 0.20: color = Screen.COLOUR_BLUE
+                elif ratio < 0.40: color = Screen.COLOUR_CYAN
+                elif ratio < 0.60: color = Screen.COLOUR_GREEN
+                elif ratio < 0.80: color = Screen.COLOUR_YELLOW
+                else:              color = Screen.COLOUR_RED
                 self.screen.print_at("███", bar_x, top_y + main_h - 1 - bh, color)
 
             peak_h = max(0, min(int(self.peak_bars[i]), bar_area_h))
@@ -1231,7 +980,7 @@ class KityPlayer:
             self.cat_idx = (self.cat_idx + 1) % len(self.cat_frames) if self.is_playing else 0
             self.last_cat_update = time.time()
         for i, line in enumerate(self.cat_frames[self.cat_idx].split('\n')):
-            self.screen.print_at(line, w - 14, h - 7 + i, Screen.COLOUR_YELLOW)
+            self.screen.print_at(line, w - 12, h - 7 + i, Screen.COLOUR_YELLOW)
         self.screen.print_at(f"VOL: {self.volume}%", w - k_w + 2, h - 7, Screen.COLOUR_WHITE)
         self.screen.print_at(f"SR : {self.metadata['samplerate']}", w - k_w + 2, h - 6, Screen.COLOUR_WHITE)
         self.screen.print_at(f"ST : {'PLAY' if self.is_playing else 'IDLE'}",
@@ -1278,7 +1027,7 @@ class KityPlayer:
         if self.input_mode:
             palette_w = 64
             px, py = (w - palette_w) // 2, 2
-            title = "SEARCH" if self.input_mode == 'search' else "PATH / COMMAND BAR (:help, :about, :update, :settings)"
+            title = "SEARCH" if self.input_mode == 'search' else "PATH / COMMAND BAR (:help, :about, :update, :keybinds)"
             self.draw_box(px, py, palette_w, 4, f" {title} ", Screen.COLOUR_YELLOW,
                           rounded=True, bg=Screen.COLOUR_BLACK)
             prompt = "Filter:" if self.input_mode == 'search' else "Path :"
@@ -1351,20 +1100,19 @@ class KityPlayer:
                     (":help", "Open this Help Menu"),
                     (":about", "View About SweetVibe"),
                     (":update", "Download latest update"),
-                    (":settings", "Open in-app Settings panel"),
+                    (":keybinds", "Open in-app keybind editor"),
                     ("", None),
-                    ("--- SETTINGS PANEL ---", "HEADER"),
-                    ("Left / Right", "Switch between Keybinds and Colors"),
-                    ("↑ / ↓", "Navigate list / Select ratio"),
+                    ("--- KEYBIND EDITOR ---", "HEADER"),
+                    ("↑ / ↓", "Navigate list"),
                     ("ENTER", "Bind a new key to selected action"),
-                    ("T", "Cycle Spectrum Mode (Auto/Reactive/Script)"),
-                    ("1-8", "Assign Color to selected ratio"),
-                    ("R", "Reset ALL settings to defaults"),
-                    ("CTRL+B", "Close settings (Back)"),
+                    ("BKSP", "Remove last bound key from action"),
+                    ("D", "Delete last bound key from action"),
+                    ("R", "Reset ALL keybinds to defaults"),
+                    ("CTRL+B", "Close editor (Back)"),
                     ("", None),
                     ("--- CONFIG ---", "HEADER"),
                     ("Keybinds File", str(KEYBINDS_FILE).replace(str(Path.home()), "~")),
-                    ("Format", "action=key1,key2,key3 | $setting=val"),
+                    ("Format", "action=key1,key2,key3"),
                 ]
             ]
 
@@ -1395,95 +1143,67 @@ class KityPlayer:
 
             back_keys = self.keybinds.get("back", [])
             back_hint = self.format_key_display(back_keys[0]) if back_keys else "CTRL+B"
-            nav_hint = f"< / > to switch pages  |  {back_hint} to close"
+            nav_hint = f"< Left / Right > to switch pages  |  {back_hint} to close"
             self.screen.print_at(nav_hint.center(hw - 4),
                                  hx + 2, hy + hh - 1, Screen.COLOUR_WHITE, Screen.A_BOLD)
 
-        # IN-APP SETTINGS PANEL
-        if self.show_settings:
-            self.draw_settings()
+        # IN-APP KEYBIND EDITOR
+        if self.show_keybind_editor:
+            self.draw_keybind_editor()
 
-    # ----------------------------------------------------------------- settings UI
-    def draw_settings(self):
+    # ----------------------------------------------------------------- keybind UI
+    def draw_keybind_editor(self):
         w, h = self.screen.width, self.screen.height
-        ew = 74
-        eh = 26
+        ew = 72
+        eh = 24
         ex = (w - ew) // 2
         ey = max(1, (h - eh) // 2)
 
         if self.kb_capture:
             title = f" PRESS KEY FOR: {self.kb_capture_action.upper()} "
             title_color = Screen.COLOUR_GREEN
+        elif self.kb_confirm_reset:
+            title = " CONFIRM RESET ALL? "
+            title_color = Screen.COLOUR_RED
         else:
-            title = " SETTINGS "
+            title = " KEYBIND EDITOR "
             title_color = Screen.COLOUR_YELLOW
 
         self.draw_box(ex, ey, ew, eh, title, title_color, rounded=True)
 
-        # Tabs header
-        tab_y = ey + 2
-        tab1 = "[ Keybinds ]"
-        tab2 = "[ Colors ]"
-        tab1_color = Screen.COLOUR_YELLOW if self.settings_tab == 0 else Screen.COLOUR_WHITE
-        tab2_color = Screen.COLOUR_YELLOW if self.settings_tab == 1 else Screen.COLOUR_WHITE
-        
-        self.screen.print_at(tab1, ex + 6, tab_y, tab1_color, Screen.A_BOLD if self.settings_tab == 0 else Screen.A_NORMAL)
-        self.screen.print_at("|", ex + 6 + len(tab1) + 2, tab_y, Screen.COLOUR_WHITE)
-        self.screen.print_at(tab2, ex + 6 + len(tab1) + 5, tab_y, tab2_color, Screen.A_BOLD if self.settings_tab == 1 else Screen.A_NORMAL)
-        
-        sep = "─" * (ew - 4)
-        self.screen.print_at(sep, ex + 2, tab_y + 1, Screen.COLOUR_BLUE, Screen.A_NORMAL)
+        action_col_w = 20
+        keys_col_x = ex + 2 + action_col_w
 
-        if self.settings_tab == 0:
-            # --- Spectrum Mode section ---
-            mode_y = tab_y + 2
-            mode_str = self.spectrum_mode.upper()
-
-            if self.spectrum_mode == SPECTRUM_REACTIVE:
-                if HAS_AUDIO_ANALYSIS:
-                    mode_color = Screen.COLOUR_GREEN
-                    mode_hint = "Press T to cycle  |  Real audio FFT active"
-                else:
-                    mode_color = Screen.COLOUR_RED
-                    mode_hint = "Press T to cycle  |  numpy/soundfile missing - script fallback"
-            elif self.spectrum_mode == SPECTRUM_SCRIPT:
-                mode_color = Screen.COLOUR_CYAN
-                mode_hint = "Press T to cycle  |  Pure scripted wave motion"
-            else:  # AUTO
-                mode_color = Screen.COLOUR_YELLOW
-                if HAS_AUDIO_ANALYSIS:
-                    mode_hint = "Press T to cycle  |  Reactive if available, else script"
-                else:
-                    mode_hint = "Press T to cycle  |  Falling back to script (no numpy/sf)"
-
-            mode_label = f" Spectrum Mode: [{mode_str}]"
-            self.screen.print_at(mode_label, ex + 2, mode_y, mode_color, Screen.A_BOLD)
-            hint_x = ex + 2 + self.get_display_width(mode_label) + 2
-            if hint_x < ex + ew - 2:
-                self.screen.print_at(self.truncate_text(mode_hint, ex + ew - 2 - hint_x),
-                                     hint_x, mode_y, Screen.COLOUR_WHITE, Screen.A_NORMAL)
-
-            # Separator after spectrum mode
-            sep = "─" * (ew - 4)
-            self.screen.print_at(sep, ex + 2, mode_y + 1, Screen.COLOUR_BLUE, Screen.A_NORMAL)
-
-            # --- Keybind list section ---
-            action_col_w = 20
-            keys_col_x = ex + 2 + action_col_w
-            header_y = mode_y + 2
+        if not self.kb_confirm_reset:
+            header_y = ey + 2
             self.screen.print_at("ACTION", ex + 2, header_y, Screen.COLOUR_CYAN, Screen.A_BOLD)
             self.screen.print_at("BOUND KEYS", keys_col_x, header_y, Screen.COLOUR_CYAN, Screen.A_BOLD)
-            sep2 = "─" * (ew - 4)
-            self.screen.print_at(sep2, ex + 2, header_y + 1, Screen.COLOUR_BLUE, Screen.A_NORMAL)
+            sep = "─" * (ew - 4)
+            self.screen.print_at(sep, ex + 2, header_y + 1, Screen.COLOUR_BLUE, Screen.A_NORMAL)
 
-            actions = list(self.keybinds.keys())
-            list_h = eh - 10
+        actions = list(self.keybinds.keys())
+        list_h = eh - 6
 
-            if self.kb_index < self.kb_scroll:
-                self.kb_scroll = self.kb_index
-            elif self.kb_index >= self.kb_scroll + list_h:
-                self.kb_scroll = self.kb_index - list_h + 1
+        if self.kb_index < self.kb_scroll:
+            self.kb_scroll = self.kb_index
+        elif self.kb_index >= self.kb_scroll + list_h:
+            self.kb_scroll = self.kb_index - list_h + 1
 
+        if self.kb_confirm_reset:
+            msg_lines = [
+                "",
+                "  This will erase ALL custom keybinds",
+                "  and restore the factory defaults.",
+                "",
+                "  This action CANNOT be undone.",
+                "",
+                f"  Press {self.format_key_display('enter')} to CONFIRM reset",
+                f"  Press {self.format_key_display('esc')} or CTRL+B to CANCEL",
+            ]
+            for i, line in enumerate(msg_lines):
+                self.screen.print_at(line.center(ew - 4), ex + 2, ey + 4 + i,
+                                     Screen.COLOUR_RED, Screen.A_BOLD)
+        else:
             for i in range(list_h):
                 idx = i + self.kb_scroll
                 if idx >= len(actions):
@@ -1493,7 +1213,7 @@ class KityPlayer:
                 keys_str = self.format_keys_list(keys)
                 is_sel = (idx == self.kb_index)
 
-                y_pos = header_y + 2 + i
+                y_pos = ey + 4 + i
                 
                 max_keys_w = ew - (keys_col_x - ex) - 2
                 keys_disp = self.truncate_text(keys_str, max_keys_w)
@@ -1515,72 +1235,17 @@ class KityPlayer:
                     self.screen.print_at(keys_disp, keys_col_x, y_pos, 
                                          Screen.COLOUR_GREEN if keys else Screen.COLOUR_BLACK,
                                          Screen.A_BOLD if keys else Screen.A_NORMAL)
-        else:
-            # --- Colors tab ---
-            self.screen.print_at("SPECTRUM COLORS", ex + 2, tab_y + 2, Screen.COLOUR_CYAN, Screen.A_BOLD)
-            self.screen.print_at("↑↓: Select ratio  |  1-8: Assign color", ex + 2, tab_y + 3, Screen.COLOUR_WHITE)
-            
-            color_keys = ["color_1", "color_2", "color_3", "color_4", "color_5"]
-            labels = ["0-20%  ", "20-40%", "40-60%", "60-80%", "80-100%"]
-            palette = ["BLACK", "RED", "GREEN", "YELLOW", "BLUE", "MAGENTA", "CYAN", "WHITE"]
-            
-            for i, c_key in enumerate(color_keys):
-                y_pos = tab_y + 5 + i
-                label = labels[i]
-                current_color_name = self.custom_colors[c_key]
-                current_color_val = COLOR_MAP.get(current_color_name, Screen.COLOUR_WHITE)
-                is_sel = (i == self.color_index)
-                
-                prefix = ">" if is_sel else " "
-                self.screen.print_at(f"{prefix} {label}:", ex + 4, y_pos, Screen.COLOUR_YELLOW if is_sel else Screen.COLOUR_WHITE, Screen.A_BOLD if is_sel else Screen.A_NORMAL)
-                
-                self.screen.print_at("█████", ex + 16, y_pos, current_color_val, Screen.A_BOLD)
-                self.screen.print_at(f"({current_color_name.upper()})", ex + 24, y_pos, Screen.COLOUR_WHITE)
-            
-            av_y = tab_y + 12
-            self.screen.print_at("Available Colors:", ex + 4, av_y, Screen.COLOUR_CYAN, Screen.A_BOLD)
-            for i, c_name in enumerate(palette):
-                c_val = COLOR_MAP[c_name.lower()]
-                x_pos = ex + 4 + (i % 4) * 16
-                y_off = av_y + 1 + (i // 4)
-                self.screen.print_at(f"{i+1}: ", x_pos, y_off, Screen.COLOUR_WHITE)
-                self.screen.print_at("██", x_pos + 3, y_off, c_val, Screen.A_BOLD)
-                self.screen.print_at(c_name, x_pos + 6, y_off, Screen.COLOUR_WHITE)
 
-        # Draw Reset Confirm Modal ON TOP if active
-        if self.kb_confirm_reset:
-            msg_h = 9
-            msg_w = ew - 10
-            msg_x = ex + 5
-            msg_y = ey + (eh - msg_h) // 2
-            self.draw_box(msg_x, msg_y, msg_w, msg_h, " CONFIRM RESET ALL? ", Screen.COLOUR_RED, rounded=True, clear=True, bg=Screen.COLOUR_BLACK)
-            msg_lines = [
-                "",
-                "  This will erase ALL custom keybinds & settings",
-                "  and restore the factory defaults.",
-                "",
-                "  This action CANNOT be undone.",
-                "",
-                f"  Press {self.format_key_display('enter')} to CONFIRM reset",
-                f"  Press {self.format_key_display('esc')} or CTRL+B to CANCEL",
-            ]
-            for i, line in enumerate(msg_lines):
-                self.screen.print_at(line.center(msg_w - 4), msg_x + 2, msg_y + 1 + i,
-                                     Screen.COLOUR_RED, Screen.A_BOLD)
-
-        # Footer
         if self.kb_capture:
             footer = " Press any key to bind  |  ESC/CTRL+B: Cancel  |  BKSP: Skip "
         elif self.kb_confirm_reset:
             footer = " ENTER: Confirm  |  ESC/CTRL+B: Cancel "
-        elif self.settings_tab == 0:
-            footer = "< >  ↑↓:Nav ENT:Bind T:Spectrum BKSP:Remove D:Delete R:Reset CTRL+B:Back"
         else:
-            footer = "< > ↑↓:Select Ratio 1-8:Assign Color R:Reset CTRL+B:Back"
-
+            footer = " \u2191/\u2193:Nav  ENT:Bind  BKSP:Remove  D:Delete  R:Reset  CNTRL+B:Back "
         self.screen.print_at(self.pad_text(footer, ew - 2), ex + 1, ey + eh - 1,
                              Screen.COLOUR_BLACK, Screen.A_BOLD, bg=Screen.COLOUR_CYAN)
 
+        # Clean file path display for title bar
         status = f" File: ~/{KEYBINDS_FILE.name} "
         self.screen.print_at(status, ex + ew - self.get_display_width(status) - 2, ey,
                              Screen.COLOUR_BLACK, Screen.A_NORMAL, bg=title_color)
@@ -1691,15 +1356,13 @@ def demo(screen):
                                             raise QuitApplication()
                                     else:
                                         player.add_log("No updates available.")
-                                elif cmd == ":keybinds" or cmd == ":settings":
-                                    player.show_settings = True
+                                elif cmd == ":keybinds":
+                                    player.show_keybind_editor = True
                                     player.kb_index = 0
-                                    player.color_index = 0
-                                    player.settings_tab = 0
                                     player.kb_capture = False
                                     player.kb_capture_action = None
                                     player.kb_confirm_reset = False
-                                    player.add_log("Opened settings panel")
+                                    player.add_log("Opened in-app keybind editor")
                                 else:
                                     player.add_log("Unknown command")
                             else:
@@ -1732,8 +1395,8 @@ def demo(screen):
                 elif player.show_about:
                     player.show_about = False
 
-                # ---- In-app settings panel ----
-                elif player.show_settings:
+                # ---- In-app keybind editor ----
+                elif player.show_keybind_editor:
                     if player.kb_capture:
                         if key_str in ["esc", "ctrl+b"]:
                             player.kb_capture = False
@@ -1757,79 +1420,47 @@ def demo(screen):
                         if key_str == "enter":
                             player.reset_keybinds()
                             player.kb_confirm_reset = False
-                            player.add_log("Settings reset to defaults!")
+                            player.kb_index = 0
+                            player.add_log("Keybinds reset to defaults!")
                         elif key_str in ["esc", "ctrl+b"]:
                             player.kb_confirm_reset = False
                             player.add_log("Reset cancelled")
 
                     else:
-                        # Tab switching using Left/Right or Tab key
-                        if key_str in ["left", "right", "tab"]:
-                            player.settings_tab = (player.settings_tab + 1) % 2
-                        
-                        # Keybinds Tab Logic
-                        elif player.settings_tab == 0:
-                            if key_str in ["up"]:
-                                player.kb_index = max(0, player.kb_index - 1)
-                            elif key_str in ["down"]:
-                                player.kb_index = min(len(player.keybinds) - 1, player.kb_index + 1)
-                            elif key_str in ["enter"]:
-                                actions = list(player.keybinds.keys())
-                                if 0 <= player.kb_index < len(actions):
-                                    player.kb_capture = True
-                                    player.kb_capture_action = actions[player.kb_index]
-                                    player.add_log(f"Press a key to bind to {player.kb_capture_action}")
-                            elif key_str == "t":
-                                player.cycle_spectrum_mode()
-                            elif key_str == "backspace":
-                                actions = list(player.keybinds.keys())
-                                if 0 <= player.kb_index < len(actions):
-                                    player.remove_last_keybind(actions[player.kb_index])
-                            elif key_str == "d":
-                                actions = list(player.keybinds.keys())
-                                if 0 <= player.kb_index < len(actions):
-                                    action = actions[player.kb_index]
-                                    keys = player.keybinds.get(action, [])
-                                    if not keys:
-                                        player.add_log(f"No keys to delete for {action}")
-                                    elif len(keys) == 1:
-                                        player.remove_keybind_at(action, 0)
-                                    else:
-                                        player.remove_keybind_at(action, len(keys) - 1)
-                            elif key_str == "r":
-                                player.kb_confirm_reset = True
-                                player.add_log("Reset? Press ENTER to confirm")
-                            elif key_str in ["esc", "ctrl+b"]:
-                                player.show_settings = False
-                                player.kb_capture = False
-                                player.kb_capture_action = None
-                                player.kb_confirm_reset = False
-                                player.add_log("Closed settings")
-                        
-                        # Colors Tab Logic
-                        else:
-                            if key_str in ["up"]:
-                                player.color_index = max(0, player.color_index - 1)
-                            elif key_str in ["down"]:
-                                player.color_index = min(4, player.color_index + 1)
-                            elif key_str and key_str.isdigit():
-                                val = int(key_str)
-                                if 1 <= val <= 8:
-                                    palette = ["black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"]
-                                    c_keys = ["color_1", "color_2", "color_3", "color_4", "color_5"]
-                                    c_key = c_keys[player.color_index]
-                                    player.custom_colors[c_key] = palette[val-1]
-                                    player.save_keybinds()
-                                    player.add_log(f"Color {player.color_index+1} set to {palette[val-1]}")
-                            elif key_str == "r":
-                                player.kb_confirm_reset = True
-                                player.add_log("Reset? Press ENTER to confirm")
-                            elif key_str in ["esc", "ctrl+b"]:
-                                player.show_settings = False
-                                player.kb_capture = False
-                                player.kb_capture_action = None
-                                player.kb_confirm_reset = False
-                                player.add_log("Closed settings")
+                        if key_str in ["up"]:
+                            player.kb_index = max(0, player.kb_index - 1)
+                        elif key_str in ["down"]:
+                            player.kb_index = min(len(player.keybinds) - 1, player.kb_index + 1)
+                        elif key_str in ["enter"]:
+                            actions = list(player.keybinds.keys())
+                            if 0 <= player.kb_index < len(actions):
+                                player.kb_capture = True
+                                player.kb_capture_action = actions[player.kb_index]
+                                player.add_log(f"Press a key to bind to {player.kb_capture_action}")
+                        elif key_str == "backspace":
+                            actions = list(player.keybinds.keys())
+                            if 0 <= player.kb_index < len(actions):
+                                player.remove_last_keybind(actions[player.kb_index])
+                        elif key_str == "d":
+                            actions = list(player.keybinds.keys())
+                            if 0 <= player.kb_index < len(actions):
+                                action = actions[player.kb_index]
+                                keys = player.keybinds.get(action, [])
+                                if not keys:
+                                    player.add_log(f"No keys to delete for {action}")
+                                elif len(keys) == 1:
+                                    player.remove_keybind_at(action, 0)
+                                else:
+                                    player.remove_keybind_at(action, len(keys) - 1)
+                        elif key_str == "r":
+                            player.kb_confirm_reset = True
+                            player.add_log("Reset? Press ENTER to confirm")
+                        elif key_str in ["esc", "ctrl+b"]:
+                            player.show_keybind_editor = False
+                            player.kb_capture = False
+                            player.kb_capture_action = None
+                            player.kb_confirm_reset = False
+                            player.add_log("Closed keybind editor")
 
                 # ---- Help modal ----
                 elif player.show_help:
