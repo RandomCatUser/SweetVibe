@@ -42,6 +42,7 @@ LEGACY_CACHE   = Path.home() / ".sweetvibe_cache" / "online"
 INDEX_FILE     = Path.home() / ".sweetvibe_cache" / "index.json"
 CONFIG_FILE    = Path.home() / ".sweetvibe_plugin_config.json"
 PLAYLISTS_FILE = Path.home() / ".sweetvibe_playlists.json"
+ERROR_LOG_FILE = Path.home() / ".sweetvibe_cache" / "last_download_error.txt"
 
 AUDIO_EXTS    = ["mp3", "m4a", "webm", "opus", "ogg", "wav", "flac"]
 PROGRESS_RE   = re.compile(r"\[download\]\s+([\d.]+)%")
@@ -282,22 +283,36 @@ def _atomic_json(path, data):
         json.dump(data, f, indent=1)
     os.replace(tmp, path)
 
+def _writable_dir(path):
+    try:
+        path = Path(path)
+        path.mkdir(parents=True, exist_ok=True)
+        probe = path / ".sweetvibe_write_test"
+        probe.write_bytes(b"")
+        probe.unlink()
+        return path
+    except (OSError, PermissionError):
+        return None
+
 def get_download_dir():
     cfg = _load_json(CONFIG_FILE, {})
     pinned = cfg.get("download_dir")
     if pinned:
-        try:
-            p = Path(pinned)
-            if p.is_dir(): return p
-        except Exception: pass
+        p = _writable_dir(pinned)
+        if p: return p
     env = os.environ.get("SWEETVIBE_DOWNLOAD_DIR")
-    if env and Path(env).is_dir(): return Path(env)
+    if env:
+        p = _writable_dir(env)
+        if p: return p
     br = detect_browse_dir()
-    if br: return br
+    if br:
+        p = _writable_dir(br)
+        if p: return p
     try:
-        if os.path.isdir(os.getcwd()): return Path.cwd()
+        p = _writable_dir(Path.cwd())
+        if p: return p
     except Exception: pass
-    return Path.home()
+    return _writable_dir(Path.home() / "Music" / "SweetVibe") or Path.home()
 
 def set_download_dir(raw):
     raw = (raw or "").strip().strip('"')
@@ -464,8 +479,14 @@ def search_worker(query, seq):
             except Exception: pass
         if seq != ENG.search_seq: return          # stale; newer search ran
         sc_state["results"] = tracks
-        _player.add_log(("Found %d tracks." % len(tracks)) if tracks
-                        else "No tracks found.")
+        if tracks:
+            _player.add_log("Found %d tracks." % len(tracks))
+        else:
+            details = (res.stderr or res.stdout or "").strip().splitlines()
+            _player.add_log("No tracks found.")
+            for line in details[-2:]:
+                if line.strip():
+                    _player.add_log("   | " + english(line.strip(), "?")[:46])
     except Exception as e:
         if seq == ENG.search_seq:
             _player.add_log("Search Error: " + english(str(e), "?")[:24])
@@ -546,9 +567,12 @@ def _resolve_worker(item):
             _finalize(item, path)
         else:
             st.update(status="failed", ts_failed=time.time())
+            _save_download_error(url, err)
             _player.add_log("STREAM FAILED:")
-            for ln in err: _player.add_log("   | " + ln)
-            _player.add_log("Tip: 'yt-dlp -U' fixes most 403/signature errors.")
+            for ln in err: _player.add_log("   | " + english(ln, "?")[:46])
+            _player.add_log("Full error saved to .sweetvibe_cache/last_download_error.txt")
+            if any(code in " ".join(err) for code in ("403", "Forbidden")):
+                _player.add_log("Tip: This video was blocked by YouTube. Try another result.")
             ENG.set_banner("X Failed: " + _short(item[1], 26), "red")
     except Exception as e:
         _player.add_log("DL Error: " + english(str(e), "?")[:24])
@@ -643,11 +667,16 @@ def _run_download(url, base, st):
             continue
         break
 
-    seen, out = set(), []
-    for ln in err_tail[-8:]:
-        k = ln[:18]
-        if k not in seen: seen.add(k); out.append(english(ln, "?")[:46])
-    return False, None, (out or ["Unknown error"])
+    return False, None, (err_tail[-8:] or ["Unknown error"])
+
+def _save_download_error(url, errors):
+    try:
+        ERROR_LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+        ERROR_LOG_FILE.write_text(
+            "URL: " + str(url) + "\n" + "\n".join(errors) + "\n",
+            encoding="utf-8")
+    except Exception:
+        pass
 
 
 def _finalize(item, path):
