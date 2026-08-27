@@ -250,6 +250,57 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
   }
 
+  /* Plugin guide */
+  .guide-intro {
+    color: var(--muted);
+    max-width: 680px;
+    margin-bottom: 28px;
+  }
+
+  .guide-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 24px;
+  }
+
+  .guide-block {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+  }
+
+  .guide-block h3 {
+    font-size: 1rem;
+    margin-bottom: 10px;
+  }
+
+  .guide-block p,
+  .guide-block li {
+    color: var(--muted);
+    font-size: 0.95rem;
+  }
+
+  .guide-block ul {
+    padding-left: 20px;
+  }
+
+  .code-wrap {
+    overflow-x: auto;
+    background: #171717;
+    border-radius: 8px;
+    padding: 22px;
+  }
+
+  .code-wrap pre {
+    color: #f4f4f5;
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    line-height: 1.7;
+    white-space: pre;
+  }
+
   .kbd-group h4 {
     font-size: 0.85rem;
     font-weight: 600;
@@ -392,6 +443,10 @@
       grid-template-columns: 1fr;
     }
 
+    .guide-grid {
+      grid-template-columns: 1fr;
+    }
+
     .footer-inner {
       flex-direction: column;
       align-items: flex-start;
@@ -418,6 +473,7 @@
     <div class="nav-links">
       <a href="#features">Features</a>
       <a href="#controls">Controls</a>
+      <a href="#plugins">Plugins</a>
       <a href="https://github.com/RandomCatUser/SweetVibe" target="_blank" rel="noopener">GitHub</a>
       <a href="https://github.com/RandomCatUser/SweetVibe/releases/latest" target="_blank" rel="noopener" class="btn btn-download-trigger">
         Download
@@ -434,7 +490,7 @@
     <h1>Terminal music,<br>tuned to taste.</h1>
     <p class="hero-sub">A sleek, Python-based TUI music player. Native audio engine, dynamic visualizer, and full keybind customization without the bloat.</p>
     <div class="hero-cta">
-      <a href="https://github.com/RandomCatUser/SweetVibe/releases/latest" target="_blank" rel="noopener" class="btn btn-download-trigger">
+      <a href="https://github.com/RandomCatUser/SweetVibe/releases/latest/Setup_Windows_x64.exe" target="_blank" rel="noopener" class="btn btn-download-trigger">
         Download for Windows
       </a>
       <a href="https://github.com/RandomCatUser/SweetVibe" target="_blank" rel="noopener" class="btn btn-outline">
@@ -591,6 +647,72 @@
   </div>
 </section>
 
+<!-- Plugin Guide -->
+<section id="plugins">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-number">03</span>
+      <h2 class="section-title">Build a Plugin</h2>
+    </div>
+    <p class="guide-intro">SweetVibe plugins are ordinary Python files. Put a <code>.py</code> file in the <code>plugins/</code> folder beside <code>main.py</code> or the installed executable. The player loads it at startup and calls <code>setup(player)</code> when that function exists.</p>
+
+    <div class="guide-grid">
+      <div class="guide-block">
+        <h3>1. Create the file</h3>
+        <p>Create <code>plugins/my_plugin.py</code>. Keep plugin code self-contained and use the player object passed to <code>setup</code>.</p>
+      </div>
+      <div class="guide-block">
+        <h3>2. Register hooks</h3>
+        <p>Append functions to <code>player.plugin_hooks</code>. Return <code>True</code> from <code>on_command</code>, <code>on_key</code>, or <code>on_play_request</code> when your plugin handled the event.</p>
+      </div>
+    </div>
+
+    <div class="guide-block" style="margin-bottom: 24px;">
+      <h3>Available hooks</h3>
+      <ul>
+        <li><code>on_command(cmd, raw_text)</code> handles command-bar commands.</li>
+        <li><code>on_key(key_str, action)</code> handles keyboard input.</li>
+        <li><code>on_play_request(item)</code> can replace normal playback.</li>
+        <li><code>on_play(filepath)</code> runs when a local track starts.</li>
+        <li><code>on_stop()</code> runs when playback stops.</li>
+        <li><code>on_draw(screen)</code> draws on top of the player interface.</li>
+        <li><code>on_tick()</code> runs once per player frame.</li>
+      </ul>
+    </div>
+
+    <div class="code-wrap">
+      <pre><code>from asciimatics.screen import Screen
+
+def custom_command(cmd, raw_text):
+    if cmd == ":hello":
+        player.add_log("Hello from my plugin!")
+        return True
+    return False
+
+def custom_draw(screen):
+    screen.print_at(" Plugin active ", 2, 0,
+                    Screen.COLOUR_CYAN, Screen.A_BOLD)
+
+def setup(the_player):
+    global player
+    player = the_player
+    player.plugin_hooks["on_command"].append(custom_command)
+    player.plugin_hooks["on_draw"].append(custom_draw)</code></pre>
+    </div>
+
+    <div class="guide-grid" style="margin-top: 24px; margin-bottom: 0;">
+      <div class="guide-block">
+        <h3>Online tracks</h3>
+        <p>For custom online items, add a tuple such as <code>("online", name, url, duration)</code> to the playlist and handle it with <code>on_play_request</code>. Return <code>True</code> after starting your download or stream.</p>
+      </div>
+      <div class="guide-block">
+        <h3>Included plugins</h3>
+        <p>The packaged application keeps plugin files as Python files in <code>plugins/</code>. The built-in online plugin provides <code>:yt</code>, <code>:sc</code>, playlist commands, caching, and yt-dlp downloads.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- Footer -->
 <footer>
   <div class="container footer-inner">
@@ -615,32 +737,7 @@
   <button class="toast-close" onclick="hideToast()">×</button>
 </div>
 
-<script>
-  const downloadLinks = document.querySelectorAll('.btn-download-trigger');
-  const toast = document.getElementById('download-toast');
-  let toastTimeout;
-
-  downloadLinks.forEach(link => {
-    link.addEventListener('click', (e) => {
-      // Don't prevent default, let the download happen
-      showToast();
-    });
-  });
-
-  function showToast() {
-    clearTimeout(toastTimeout);
-    toast.classList.add('show');
-    // Auto-hide after 5 seconds
-    toastTimeout = setTimeout(() => {
-      toast.classList.remove('show');
-    }, 5000);
-  }
-
-  function hideToast() {
-    clearTimeout(toastTimeout);
-    toast.classList.remove('show');
-  }
-</script>
+<script src="./script.js"></script>
 
 </body>
 </html>
