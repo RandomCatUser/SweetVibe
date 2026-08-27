@@ -60,6 +60,10 @@ Name: "cleansetup"; Description: "&Clean installation (removes previous files, r
 Source: "{#MyBuildDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#MyIconName}"; DestDir: "{app}"; Flags: ignoreversion
 
+[Dirs]
+Name: "{app}"; Permissions: users-modify
+Name: "{app}\songs"; Permissions: users-modify
+
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\{#MyIconName}"
 Name: "{group}\Open Songs Folder"; Filename: "{app}\songs"; IconFilename: "{app}\{#MyIconName}"
