@@ -1,82 +1,121 @@
 
-<img src="https://socialify.git.ci/RandomCatUser/SweetVibe/image?description=1&font=JetBrains+Mono&language=1&name=1&pattern=Floating+Cogs&theme=Dark" alt="SweetVibe" width="640" height="320" />
-
 # SweetVibe Music Player
 
-SweetVibe is a sleek, terminal-based (TUI) music player built with Python. It features a retro-modern aesthetic, robust audio playback, a dynamic audio visualizer, and full in-app keybind customization. 
+SweetVibe is a terminal music player for Windows and Python. It provides local music browsing, PC-wide scanning, playlists, audio visualization, customizable keybindings, automatic updates, and optional YouTube discovery with yt-dlp.
 
 ## Features
 
-* **Retro TUI:** High-performance terminal interface using `asciimatics`.
-* **Native Audio Engine:** Uses `just_playback` for reliable, low-latency audio playback without external dependencies like FFmpeg.
-* **Custom Keybinds:** Fully customizable keybindings via an in-app editor. Change any action, add multiple keys, or reset to defaults.
-* **Dynamic UI:** The help menu and bottom status bar dynamically read from your custom keybinds, so the hints always match your configuration.
-* **Smart Library:** Flawless CJK (Chinese, Japanese, Korean) character support without visual artifacts or "bleeding." Includes a PC-wide scanner to find all audio files.
-* **Dynamic Spectrum:** An advanced 4-harmonic audio visualizer with falling peak caps that reacts to your music.
-* **Auto-Updates:** Checks the latest GitHub release and downloads the Windows installer when a newer version is available.
+- Terminal interface built with `asciimatics`.
+- Audio playback through `just_playback`.
+- Browse the included `songs` folder or scan the PC for audio files.
+- Audio spectrum visualization with automatic, reactive, and script modes.
+- Search, filter, shuffle, repeat, seek, volume, and mute controls.
+- In-app keybinding editor saved to `~/.sweetvibe_keybinds`.
+- YouTube search and downloads through the Python plugin in `plugins/online.py`.
+- Download caching, progress reporting, retry handling, playlists, and download-folder selection.
+- Background GitHub release update checks.
 
-## Quick Start
+## Run From Source
 
-### For Developers
+Install the required packages:
 
-If you want to run the script directly:
+```bash
+python -m pip install asciimatics tinytag just_playback numpy soundfile
+```
 
-1. **Install Dependencies:**
-   ```bash
-   pip install asciimatics tinytag just_playback
-   ```
-2. **Run the App:**
-   ```bash
-   python main.py
-   ```
+`numpy` and `soundfile` enable the real audio-reactive spectrum and are optional. To enable YouTube features when running from source, install yt-dlp:
 
-### Build Windows EXE
+```bash
+python -m pip install --user --upgrade yt-dlp
+```
 
-Run `build.ps1` in PowerShell from the project folder. It creates the portable app in `dist\release\SweetVibe` and creates `dist\installer\Setup_Windows_x64.exe` when Inno Setup 6 is installed.
+Start the player from the project folder:
+
+```bash
+python main.py
+```
+
+The application automatically loads Python plugins from `plugins/`. A plugin must contain a `setup(player)` function. See [docs/plugins.md](docs/plugins.md) for the plugin API.
+
+## Windows Build
+
+Requirements:
+
+- Python with the project dependencies installed.
+- PyInstaller available as `pyinstaller`.
+- Inno Setup 6 installed as `ISCC.exe`.
+
+Run either build script from the project folder:
+
+```bat
+build.bat
+```
+
+```powershell
+.\build.ps1
+```
+
+The build performs two steps:
+
+1. PyInstaller creates the portable application in `dist\SweetVibe`.
+2. Inno Setup creates `dist\installer\Setup_Windows_x64.exe`.
+
+The PyInstaller bundle includes the Python files in `plugins/`, including the online music installer helpers. The installer copies those files and then offers a guided online-music setup after installation. If Python is not installed, it downloads and installs Python 3.12 for the current user. It then runs the bundled Python setup, which asks whether to install or update yt-dlp. The setup can be skipped and run again later if needed.
 
 ## Default Controls
 
-All controls can be customized in-app. Below are the factory defaults.
+All controls can be customized in the keybinding editor.
 
 | Key | Action |
 | --- | --- |
-| `↑` / `↓` | Navigate library |
-| `ENTER` | Open folder / Play file |
-| `SPACE` | Play / Pause |
-| `→` / `←` | Seek +10s / -10s |
-| `+` / `-` | Volume Up / Down |
-| `M` | Mute / Unmute |
-| `TAB` | Cycle Mode (Browse / PC-Scan) |
-| `S` | Toggle Shuffle |
-| `R` | Toggle Repeat |
-| `BACKSPACE` / `ESC` / `CTRL+B` | Go back / Exit mode |
-| `CTRL+F` / `/` | Search / Filter songs |
-| `CTRL+O` / `P` | Open Path / Command Bar |
-| `Q` / `CTRL+C` | Quit Player |
+| `Up` / `Down` | Navigate the library |
+| `Enter` | Open a folder or play a file |
+| `Space` | Play or pause |
+| `Right` / `Left` | Seek forward or backward |
+| `+` / `-` | Increase or decrease volume |
+| `M` | Mute or unmute |
+| `Tab` | Cycle Browse and PC-Scan modes |
+| `S` | Toggle shuffle |
+| `R` | Toggle repeat |
+| `Backspace` / `Esc` / `Ctrl+B` | Go back or close the current mode |
+| `Ctrl+F` / `/` | Search or filter songs |
+| `Ctrl+O` / `P` | Open the command bar |
+| `Q` / `Ctrl+C` | Quit |
 
-## In-App Keybind Editor
+## Command Bar
 
-SweetVibe includes a built-in keybind editor. Open the command bar (`CTRL+O` or `P`) and type `:keybinds`.
+Open the command bar with `Ctrl+O` or `P`.
 
-* **↑ / ↓:** Navigate the action list.
-* **ENTER:** Bind a new key to the selected action (press any key to bind it).
-* **BACKSPACE:** Remove the last bound key from the selected action.
-* **D:** Delete the last bound key (alternative to backspace).
-* **R:** Reset ALL keybinds to factory defaults (requires confirmation).
-* **ESC / CTRL+B:** Close the editor.
+| Command | Description |
+| --- | --- |
+| `:help` | Show help and shortcuts |
+| `:about` | Show application information |
+| `:update` | Check for and install the latest GitHub release |
+| `:keybinds` | Open the keybinding editor |
+| `:yt <query>` | Search YouTube and choose a track |
+| `:sc <query>` | Alias for YouTube search |
+| `:pl list` | List saved playlists |
+| `:pl save <name>` | Save the current queue |
+| `:pl load <name>` | Add a playlist to the queue |
+| `:pl play <name>` | Replace the queue and play a playlist |
+| `:pl view <name>` | Show playlist tracks |
+| `:pl del <name>` | Delete a playlist |
+| `:cache info` | Show the download target and cache information |
+| `:cache dir` | Show the current download target |
+| `:cache dir <path>` | Pin downloads to a folder |
+| `:cache dir reset` | Remove the pinned download folder |
+| `:cache open` | Open the download folder in Explorer |
+| `:cache clear` | Remove legacy temporary cache files |
+| `<folder path>` | Navigate directly to a folder |
 
-*Note: The editor automatically saves to `~/.sweetvibe_keybinds` (a plain-text file). You can also edit this file manually!*
+YouTube downloads use the current Browse folder when possible. A download can be pinned with `:cache dir <path>`. If yt-dlp is unavailable, the player logs a setup message instead of crashing.
 
-## Command Bar Commands
+## Plugin Development
 
-Open the command bar by pressing `CTRL+O` or `P`, or typing `/` or `CTRL+F` for search.
+Plugins are ordinary Python files stored in `plugins/`. SweetVibe loads every `.py` file beside the executable or `main.py` and calls its `setup(player)` function. Plugin hooks support commands, key presses, drawing, ticks, playback requests, playback start, and playback stop.
 
-* `:help` - Open the Help & Shortcuts menu.
-* `:about` - View About SweetVibe.
-* `:update` - Download and install the latest version from GitHub.
-* `:keybinds` - Open the in-app keybind editor.
-* *(Or type any folder path like `C:\Music` to jump straight to it)* 
+Read the complete API guide in [docs/plugins.md](docs/plugins.md).
 
 ## License
 
-Distributed under the `Apache License 2.0`. See `LICENSE` for more information.
+Distributed under the Apache License 2.0. See [LICENSE](LICENSE) for details.

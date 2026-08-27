@@ -72,6 +72,7 @@ Root: HKCR; Subkey: "Directory\shell\SweetVibe"; ValueType: string; ValueName: "
 Root: HKCR; Subkey: "Directory\shell\SweetVibe\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%1"""; Flags: uninsdeletekey
 
 [Run]
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\plugins\setup_online.ps1"""; Description: "Set up online music (Python and yt-dlp)"; Flags: waituntilterminated postinstall skipifsilent runasoriginaluser
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent runasoriginaluser
 Filename: "{#MyAppURL}"; Description: "Visit GitHub Repository"; Flags: postinstall skipifsilent nowait shellexec runasoriginaluser
 

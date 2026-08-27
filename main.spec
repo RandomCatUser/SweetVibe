@@ -10,6 +10,7 @@ for package in ('asciimatics', 'tinytag', 'just_playback'):
     binaries += package_binaries
     hiddenimports += package_hiddenimports
 datas.append(('songs', 'songs'))
+datas.append(('plugins', 'plugins'))
 
 a = Analysis(
     ['main.py'],
