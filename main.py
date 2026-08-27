@@ -35,7 +35,7 @@ except ImportError:
     print("Tip: Install numpy & soundfile (pip install numpy soundfile) for a real audio-reactive spectrum.")
 
 AUDIO_EXTS = {'.mp3', '.wav', '.flac', '.m4a', '.ogg', '.opus', '.aac'}
-CURRENT_VERSION = "1.3.1"
+CURRENT_VERSION = "1.4.0"
 RELEASES_API_URL = "https://api.github.com/repos/RandomCatUser/SweetVibe/releases/latest"
 INSTALLER_ASSET_NAME = "Setup_Windows_x64.exe"
 

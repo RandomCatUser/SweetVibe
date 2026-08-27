@@ -1,6 +1,14 @@
 @echo off
 echo Building the executable with PyInstaller...
 
+powershell -NoProfile -Command "if (Get-Process -Name SweetVibe -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }"
+if %ERRORLEVEL% neq 0 (
+    echo.
+    echo SweetVibe is currently running. Close all SweetVibe windows before building.
+    pause
+    exit /b 1
+)
+
 REM Run PyInstaller using the existing configuration
 pyinstaller main.spec --noconfirm --clean
 

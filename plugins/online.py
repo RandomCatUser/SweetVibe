@@ -35,6 +35,9 @@ except Exception:
     _translit = None
 
 _player        = None
+APP_DIR        = (Path(sys.executable).resolve().parent
+                  if getattr(sys, "frozen", False)
+                  else Path(__file__).resolve().parents[1])
 LEGACY_CACHE   = Path.home() / ".sweetvibe_cache" / "online"
 INDEX_FILE     = Path.home() / ".sweetvibe_cache" / "index.json"
 CONFIG_FILE    = Path.home() / ".sweetvibe_plugin_config.json"
@@ -52,6 +55,9 @@ _wf = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000) if os.name == "nt" els
 
 def _yt_dlp_command():
     """Find yt-dlp installed by the guided installer or available on PATH."""
+    bundled = APP_DIR / "yt-dlp.exe"
+    if bundled.is_file():
+        return [str(bundled)]
     found = shutil.which("yt-dlp")
     if found:
         return [found]

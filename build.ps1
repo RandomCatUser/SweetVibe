@@ -3,6 +3,12 @@
 
 Write-Host "Building the executable with PyInstaller..." -ForegroundColor Cyan
 
+$running_app = Get-Process -Name SweetVibe -ErrorAction SilentlyContinue
+if ($running_app) {
+    Write-Host "SweetVibe is currently running. Close all SweetVibe windows before building." -ForegroundColor Red
+    exit 1
+}
+
 # Run PyInstaller using the existing configuration
 # Note: main.spec already specifies ico.ico as the icon and sets up the correct build folder (dist\SweetVibe).
 pyinstaller main.spec --noconfirm --clean

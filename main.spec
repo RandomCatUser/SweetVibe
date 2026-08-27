@@ -1,4 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
+import shutil
+
 from PyInstaller.utils.hooks import collect_all
 
 datas = []
@@ -9,6 +11,10 @@ for package in ('asciimatics', 'tinytag', 'just_playback'):
     datas += package_datas
     binaries += package_binaries
     hiddenimports += package_hiddenimports
+yt_dlp_exe = shutil.which('yt-dlp')
+if not yt_dlp_exe:
+    raise SystemExit('yt-dlp.exe is required to build SweetVibe. Install it with: python -m pip install --upgrade yt-dlp')
+binaries.append((yt_dlp_exe, '.'))
 datas.append(('songs', 'songs'))
 datas.append(('plugins', 'plugins'))
 
