@@ -1,12 +1,4 @@
-; ---------------------------------------------------------------------------
-; SweetVibe installer script (requires Inno Setup 6.3+)
-;
-; Required files, all in the same folder as this .iss:
-;   installer.ico    -> icon of the installer EXE
-;   uninstaller.ico  -> icon of the uninstaller (Add/Remove Programs + shortcut)
-;   ico.ico          -> app icon (shortcuts, context menu)
-;   dist\SweetVibe\  -> your application build
-; ---------------------------------------------------------------------------
+
 
 #define MyAppName "SweetVibe"
 #define MyAppVersion "1.4.0"
