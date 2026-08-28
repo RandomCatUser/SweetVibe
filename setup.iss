@@ -110,7 +110,6 @@ Filename: "{#MyAppURL}"; Description: "Visit GitHub Repository"; Flags: postinst
 const
   SHCNE_ASSOCCHANGED = $08000000;
   SHCNF_IDLIST = $0000;
-  FILE_ATTRIBUTE_DIRECTORY = $00000010;
 
 procedure SHChangeNotify(wEventId: Longint; uFlags: UINT; dwItem1: Longint; dwItem2: Longint);
   external 'SHChangeNotify@shell32.dll stdcall';
