@@ -364,6 +364,61 @@
     gap: 24px;
   }
 
+  /* Documentation cards */
+  .docs-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+
+  .doc-card {
+    display: block;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  }
+
+  .doc-card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 4px 12px rgba(214, 51, 108, 0.1);
+    transform: translateY(-1px);
+  }
+
+  .doc-card-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: 8px;
+  }
+
+  .doc-card-title .arrow {
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  .doc-card p {
+    color: var(--muted);
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+
+  .doc-card .doc-tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--accent);
+    background: rgba(214, 51, 108, 0.08);
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-top: 12px;
+    border: 1px solid rgba(214, 51, 108, 0.1);
+  }
+
+
   /* Download Toast Notification */
   .toast {
     position: fixed;
@@ -447,6 +502,10 @@
       grid-template-columns: 1fr;
     }
 
+    .docs-grid {
+      grid-template-columns: 1fr;
+    }
+
     .footer-inner {
       flex-direction: column;
       align-items: flex-start;
@@ -474,6 +533,7 @@
       <a href="#features">Features</a>
       <a href="#controls">Controls</a>
       <a href="#plugins">Plugins</a>
+      <a href="#docs">Docs</a>
       <a href="https://github.com/RandomCatUser/SweetVibe" target="_blank" rel="noopener">GitHub</a>
       <a href="https://github.com/RandomCatUser/SweetVibe/releases/latest" target="_blank" rel="noopener" class="btn btn-download-trigger">
         Download
@@ -490,7 +550,7 @@
     <h1>Terminal music,<br>tuned to taste.</h1>
     <p class="hero-sub">A sleek, Python-based TUI music player. Native audio engine, dynamic visualizer, and full keybind customization without the bloat.</p>
     <div class="hero-cta">
-      <a href="https://github.com/RandomCatUser/SweetVibe/releases/1.4.0/Setup_Windows_x64.exe" target="_blank" rel="noopener" class="btn btn-download-trigger">
+      <a href="https://github.com/RandomCatUser/SweetVibe/releases/latest" target="_blank" rel="noopener" class="btn btn-download-trigger">
         Download for Windows
       </a>
       <a href="https://github.com/RandomCatUser/SweetVibe" target="_blank" rel="noopener" class="btn btn-outline">
@@ -709,6 +769,55 @@ def setup(the_player):
         <h3>Included plugins</h3>
         <p>The packaged application keeps plugin files as Python files in <code>plugins/</code>. The built-in online plugin provides <code>:yt</code>, <code>:sc</code>, playlist commands, caching, and yt-dlp downloads.</p>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- Documentation -->
+<section id="docs">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-number">04</span>
+      <h2 class="section-title">Documentation</h2>
+    </div>
+    <p class="guide-intro">Guides for extending, customizing, and building SweetVibe. Each guide is also in the repo under <code>docs/</code>.</p>
+
+    <div class="docs-grid">
+      <a class="doc-card" href="https://github.com/RandomCatUser/SweetVibe/blob/main/docs/plugins.md" target="_blank" rel="noopener">
+        <div class="doc-card-title">Plugin Development <span class="arrow">→</span></div>
+        <p>Write plugins: register hooks, draw UI, add commands, and inject online streams into the queue.</p>
+        <span class="doc-tag">plugins.md</span>
+      </a>
+
+      <a class="doc-card" href="https://github.com/RandomCatUser/SweetVibe/blob/main/docs/architecture.md" target="_blank" rel="noopener">
+        <div class="doc-card-title">Source Architecture <span class="arrow">→</span></div>
+        <p>How the codebase is organized and where to make changes when customizing the source.</p>
+        <span class="doc-tag">architecture.md</span>
+      </a>
+
+      <a class="doc-card" href="https://github.com/RandomCatUser/SweetVibe/blob/main/docs/keybindings.md" target="_blank" rel="noopener">
+        <div class="doc-card-title">Keybindings &amp; Settings <span class="arrow">→</span></div>
+        <p>Remap every key and edit the settings file format, all actions, and key names.</p>
+        <span class="doc-tag">keybindings.md</span>
+      </a>
+
+      <a class="doc-card" href="https://github.com/RandomCatUser/SweetVibe/blob/main/docs/spectrum.md" target="_blank" rel="noopener">
+        <div class="doc-card-title">Spectrum &amp; Colors <span class="arrow">→</span></div>
+        <p>Pick spectrum modes and customize the visualizer palette, bars, and behavior.</p>
+        <span class="doc-tag">spectrum.md</span>
+      </a>
+
+      <a class="doc-card" href="https://github.com/RandomCatUser/SweetVibe/blob/main/docs/building.md" target="_blank" rel="noopener">
+        <div class="doc-card-title">Building the EXE <span class="arrow">→</span></div>
+        <p>Build the executable and installer, and avoid antivirus false positives.</p>
+        <span class="doc-tag">building.md</span>
+      </a>
+
+      <a class="doc-card" href="https://github.com/RandomCatUser/SweetVibe/blob/main/README.md" target="_blank" rel="noopener">
+        <div class="doc-card-title">Full README <span class="arrow">→</span></div>
+        <p>Features, quick start, commands, and links back to the whole guide set.</p>
+        <span class="doc-tag">README.md</span>
+      </a>
     </div>
   </div>
 </section>
