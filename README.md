@@ -76,7 +76,7 @@ build.bat
 The build performs two steps:
 
 1. PyInstaller creates the portable application in `dist\SweetVibe`.
-2. Inno Setup creates `dist\installer\Setup_Windows_x64_v1.4.1.exe`.
+2. Inno Setup creates `dist\installer\Setup_Windows_x64.exe`.
 
 A complete walkthrough is in [docs/building.md](docs/building.md), including
 how UPX/version info affect antivirus false-positive detection.

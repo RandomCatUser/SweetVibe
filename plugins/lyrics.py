@@ -1,19 +1,4 @@
-# PLUGIN :: LYRICS
-# Shows the lyrics stored in the current song's metadata inside a modal box.
-#
-#   Open with:  :lyric
-#   Or target a specific file:  :lyric <path to audio file>
-#
-# Spotify-style auto-scroll:
-#   - Timed (LRC) lyrics follow the exact timestamp of the playing song.
-#   - Plain lyrics are auto-scrolled proportionally to the song duration.
-#   - The active line is highlighted and kept near the middle of the box.
-#   - Toggle with:  :lyric auto=1   (on)   :lyric auto=0   (off)
-#   - Scrolling with Up/Down turns auto-scroll off; re-enable it with auto=1.
-#
-# CJK-aware rendering: Chinese, Japanese and Korean characters are preserved
-# and laid out using their real terminal (double) width, so text always stays
-# inside the box and never overflows, jumps, or breaks its borders.
+
 
 import os
 import re
@@ -42,6 +27,7 @@ _st = {
     "active": -1,         # currently active line index (-1 = none)
     "timeline": [],       # list of (time_seconds, line_index) in order
     "timed": False,       # True if lyrics carry real LRC timestamps
+    "cjk": False,         # True if lyrics are (mostly) CJK -> no auto scroll
 }
 
 
@@ -71,6 +57,35 @@ def center_fit(text, w):
     t = dw_truncate(text, w)
     pad = max(w - dwidth(t), 0)
     return " " * (pad // 2) + t + " " * (pad - pad // 2)
+
+
+# CJK detection ---------------------------------------------------------------
+_CJK_RANGES = (
+    (0x3400, 0x4DBF),   # CJK Unified Ideographs Extension A
+    (0x4E00, 0x9FFF),   # CJK Unified Ideographs
+    (0x3040, 0x30FF),   # Hiragana + Katakana
+    (0xAC00, 0xD7AF),   # Hangul Syllables
+    (0xF900, 0xFAFF),   # CJK Compatibility Ideographs
+    (0xFF66, 0xFF9D),   # Halfwidth Katakana
+)
+
+def is_cjk(ch):
+    o = ord(ch)
+    return any(lo <= o <= hi for lo, hi in _CJK_RANGES)
+
+def _mostly_cjk(lines):
+    """True if the non-blank lyric text is made up largely of CJK letters."""
+    total, cjk = 0, 0
+    for line in lines:
+        for ch in line:
+            if ch.isspace():
+                continue
+            total += 1
+            if is_cjk(ch):
+                cjk += 1
+    if not total:
+        return False
+    return cjk / total >= 0.6
 
 
 # Clipped printer: never draw outside the screen or the box ------------------
@@ -261,7 +276,11 @@ def _open(player, path):
 
     _st.update(mode=MODE_VIEW, lines=cleaned_lines, scroll=0, active=-1,
                title=title, source=str(src),
-               timeline=timeline, timed=timed, auto=True)
+               timeline=timeline, timed=timed, auto=True,
+               cjk=_mostly_cjk(cleaned_lines))
+    # For CJK lyrics there is no per-line follow-along, so force scroll off.
+    if _st["cjk"]:
+        _st["auto"] = False
     player.add_log("Lyrics loaded (%d lines%s)." %
                    (len(cleaned_lines), " [timed]" if timed else ""))
 
@@ -384,7 +403,7 @@ def _update_auto_scroll_elapsed(elapsed, max_rows, n):
 
 
 def on_tick():
-    if _st["mode"] != MODE_VIEW or not _st["auto"]:
+    if _st["mode"] != MODE_VIEW or not _st["auto"] or _st["cjk"]:
         return
     try:
         w = _player.screen.width if (_player is not None and _player.screen) else 120

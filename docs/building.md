@@ -29,7 +29,7 @@ python -m pip install --user --upgrade yt-dlp
 The release build produces:
 
 1. A **portable application** in `dist\SweetVibe\` (built by PyInstaller).
-2. An **installer** at `dist\installer\Setup_Windows_x64_v<version>.exe`
+2. An **installer** at `dist\installer\Setup_Windows_x64.exe`
    (built by Inno Setup).
 
 Both steps are driven by the configuration in:
@@ -69,46 +69,9 @@ Both scripts:
 - The bundled `yt-dlp.exe`, the `songs` folder, and the `plugins` folder.
 - The icon (`ico.ico`).
 - Windows **version info** from `version_info.txt` (product name, company,
-  description, version `1.4.1`).
+  description, version `1.4.2`).
 
 If `yt-dlp` is missing at build time, the spec aborts with a clear message.
-
----
-
-## Avoiding antivirus false positives
-
-PyInstaller executables are sometimes flagged by antivirus as a Trojan. This is
-a **false positive** - the program is not malicious. It happens because packed,
-single-file executables look structurally similar to real malware.
-
-The most important fixes are already applied to this project:
-
-1. **UPX is disabled.** In `main.spec`, both the `EXE` and `COLLECT` stages use
-   `upx=False`. UPX-pack-compressed executables are the single biggest trigger
-   for heuristic Trojan detection. If you ever re-enable it, expect more flags.
-
-2. **Real Windows version info is embedded.** `main.spec` sets
-   `version='version_info.txt'`, so the EXE reports a genuine product name,
-   company, description, and version. Legitimate-looking binaries are flagged
-   far less often.
-
-### If an antivirus still flags the EXE
-
-- **Code-sign the executable** with an Authenticode certificate. A valid
-  signature removes most heuristics. Services such as Azure Trusted Signing or
-  any purchased code-signing cert work; you then sign
-  `dist\SweetVibe\SweetVibe.exe` (with e.g. `signtool`).
-- **Report a false positive** to the antivirus vendor (Windows Defender,
-  etc.). Most have a web form; they will review and allowlist the binary.
-- Double-check the EXE you built matches the current `main.spec` - older UPX
-  builds still get flagged.
-
-### Things that increase flags (avoid unless you know why)
-
-- Turning `upx` back on.
-- Building with no icon and no version info.
-- Downloading the EXE via an "unrecognized publisher" URL without any
-  reputation.
 
 ---
 

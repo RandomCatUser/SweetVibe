@@ -1,7 +1,7 @@
 
 
 #define MyAppName "SweetVibe"
-#define MyAppVersion "1.4.1"
+#define MyAppVersion "1.4.2"
 #define MyAppPublisher "DihanRamanayaka"
 #define MyAppURL "https://github.com/RandomCatUser/SweetVibe"
 #define MyAppExeName "SweetVibe.exe"
@@ -40,7 +40,7 @@ DisableProgramGroupPage=yes
 AllowNoIcons=yes
 DisableWelcomePage=no
 OutputDir=dist\installer
-OutputBaseFilename=Setup_Windows_x64_v{#MyAppVersion}
+OutputBaseFilename=Setup_Windows_x64
 SetupIconFile={#SetupIcon}
 UninstallDisplayIcon={app}\{#UninstallIcon}
 UninstallDisplayName={#MyAppName} {#MyAppVersion}
