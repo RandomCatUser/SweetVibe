@@ -111,7 +111,6 @@ def setup(player):
     player.plugin_hooks["on_tick"].append(on_tick)
 
 
-# ==========================================================================
 # TEXT SANITIZER -- English only, no emoji, terminal-safe
 _EMOJI_RANGES = (
     (0x1F000, 0x1FAFF),   # emoji, pictographs, game pieces
