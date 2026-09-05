@@ -113,7 +113,6 @@ def setup(player):
 
 # ==========================================================================
 # TEXT SANITIZER -- English only, no emoji, terminal-safe
-# ==========================================================================
 _EMOJI_RANGES = (
     (0x1F000, 0x1FAFF),   # emoji, pictographs, game pieces
     (0x2600,  0x27BF),    # misc symbols, dingbats

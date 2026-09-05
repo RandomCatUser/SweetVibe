@@ -51,7 +51,6 @@ WizardSizePercent=110
 WizardResizable=yes
 AppMutex=SweetVibeAppMutex
 PrivilegesRequired=admin
-PrivilegesRequiredOverridesAllowed=dialog commandline
 UsePreviousAppDir=yes
 UsePreviousTasks=yes
 MinVersion=10.0.17763
@@ -94,13 +93,13 @@ Name: "{group}\Uninstall {#MyAppName}"; Filename: "{uninstallexe}"; IconFilename
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\{#AppIcon}"; Comment: "{#MyAppName} - terminal music player with visualizer"; Tasks: desktopicon
 
 [Registry]
-Root: HKCR; Subkey: "Directory\shell\SweetVibe"; ValueType: string; ValueName: ""; ValueData: "Play in {#MyAppName}"; Flags: uninsdeletekey
-Root: HKCR; Subkey: "Directory\shell\SweetVibe"; ValueType: string; ValueName: "Icon"; ValueData: "{app}\{#AppIcon}"; Flags: uninsdeletekey
-Root: HKCR; Subkey: "Directory\shell\SweetVibe\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%1"""; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Classes\Directory\shell\SweetVibe"; ValueType: string; ValueName: ""; ValueData: "Play in {#MyAppName}"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Classes\Directory\shell\SweetVibe"; ValueType: string; ValueName: "Icon"; ValueData: "{app}\{#AppIcon}"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Classes\Directory\shell\SweetVibe\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%1"""; Flags: uninsdeletekey
 ; Also show the option when right-clicking the empty space INSIDE a folder
-Root: HKCR; Subkey: "Directory\Background\shell\SweetVibe"; ValueType: string; ValueName: ""; ValueData: "Play in {#MyAppName}"; Flags: uninsdeletekey
-Root: HKCR; Subkey: "Directory\Background\shell\SweetVibe"; ValueType: string; ValueName: "Icon"; ValueData: "{app}\{#AppIcon}"; Flags: uninsdeletekey
-Root: HKCR; Subkey: "Directory\Background\shell\SweetVibe\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%V"""; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Classes\Directory\Background\shell\SweetVibe"; ValueType: string; ValueName: ""; ValueData: "Play in {#MyAppName}"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Classes\Directory\Background\shell\SweetVibe"; ValueType: string; ValueName: "Icon"; ValueData: "{app}\{#AppIcon}"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Classes\Directory\Background\shell\SweetVibe\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%V"""; Flags: uninsdeletekey
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent runasoriginaluser
