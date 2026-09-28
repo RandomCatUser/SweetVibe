@@ -34,7 +34,7 @@ except ImportError:
     HAS_AUDIO_ANALYSIS = False
     print("Tip: Install numpy & soundfile (pip install numpy soundfile) for a real audio-reactive spectrum.")
 
-AUDIO_EXTS = {'.mp3', '.wav', '.flac', '.m4a', '.ogg', '.opus', '.aac'}
+AUDIO_EXTS = {'.mp3', '.wav', '.flac', '.m4a', '.ogg', '.opus', '.aac', '.webm'}
 CURRENT_VERSION = "1.4.2"
 RELEASES_API_URL = "https://api.github.com/repos/RandomCatUser/SweetVibe/releases/latest"
 INSTALLER_ASSET_NAME = "Setup_Windows_x64.exe"
@@ -862,9 +862,13 @@ class KityPlayer:
             self.add_log(f"Playing: {filename[:30]}")
         except Exception as e:
             err_msg = str(e)
-            if len(err_msg) > 45:
-                err_msg = err_msg[:45] + "..."
-            self.add_log(f"Err: {err_msg}")
+            if "MA_ERROR" in err_msg:
+                ext = str(filepath).rsplit(".", 1)[-1].lower() if "." in str(filepath) else "?"
+                self.add_log(f"Err: .{ext} not decodable (mp3/ogg/opus/wav/flac)")
+            elif len(err_msg) > 45:
+                self.add_log(f"Err: {err_msg[:45]}...")
+            else:
+                self.add_log(f"Err: {err_msg}")
             self.is_playing = False
 
     def navigate_into(self):

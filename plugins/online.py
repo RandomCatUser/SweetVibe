@@ -1,15 +1,26 @@
 """
-PLUGIN :: ONLINE DISCOVERY v5
+PLUGIN :: ONLINE DISCOVERY v6
 =============================
-NEW vs v4
-- STRICT ENGLISH-ONLY OUTPUT: yt-dlp titles are transliterated to English
-  when 'unidecode' is installed (pip install unidecode), otherwise stripped
-  to plain ASCII. Emojis/Windows-icons/CJK never reach the screen, so
-  nothing can overflow the modal or corrupt other panels anymore.
-- BOX CLAMPING: all modal prints clipped to interior cells; row list cannot
-  paint outside its window; footer/header fixed.
-- Bottom status bar now only during active downloads (no more permanent
-  overlay on the SESSION panel).
+NEW in v6 -- PLAYABILITY FIX (no ffmpeg, no extra binaries)
+- The audio engine (just_playback/miniaudio) only decodes mp3 / wav / flac /
+  ogg-vorbis / ogg-opus.  YouTube streams are WebM+Opus or M4A+AAC, so a raw
+  download was saved as .webm and then died with a cryptic "MA_ERROR".
+- v6 remuxes WebM/Matroska (Opus) -> Ogg Opus in PURE PYTHON: the EBML
+  container is read, the Opus packets are repacked into Ogg pages with correct
+  granule positions.  Nothing is re-encoded, so it needs no converter at all.
+- Downloads now prefer a stream we can decode (Opus first), every cached /
+  queued / browsed file is checked for playability, and unplayable WebM files
+  (old downloads included) are repaired automatically on play.
+
+v5 notes kept below.
+STRICT ENGLISH-ONLY OUTPUT: yt-dlp titles are transliterated to English
+when 'unidecode' is installed (pip install unidecode), otherwise stripped
+to plain ASCII. Emojis/Windows-icons/CJK never reach the screen, so
+nothing can overflow the modal or corrupt other panels anymore.
+BOX CLAMPING: all modal prints clipped to interior cells; row list cannot
+paint outside its window; footer/header fixed.
+Bottom status bar now only during active downloads (no more permanent
+overlay on the SESSION panel).
 Kept: browse-folder saving, friendly filenames, url->file index,
 permanent cache + instant replay, live %, stall watchdog, retry chain,
 :pl playlists, :cache info/clear/open/dir.
@@ -19,6 +30,10 @@ import os
 import re
 import json
 import time
+import zlib
+import mmap
+import struct
+import random
 import shutil
 import hashlib
 import platform
@@ -45,6 +60,10 @@ PLAYLISTS_FILE = Path.home() / ".sweetvibe_playlists.json"
 ERROR_LOG_FILE = Path.home() / ".sweetvibe_cache" / "last_download_error.txt"
 
 AUDIO_EXTS    = ["mp3", "m4a", "webm", "opus", "ogg", "wav", "flac"]
+# what the audio engine can DECODE: just_playback -> miniaudio handles these
+# and nothing else (.webm and .m4a blow up with "MA_ERROR" at load time)
+PLAYABLE_EXTS = ("mp3", "ogg", "opus", "wav", "flac")
+REMUX_EXTS    = ("webm", "mkv")   # containers holding Opus we can repack
 PROGRESS_RE   = re.compile(r"\[download\]\s+([\d.]+)%")
 YT_ID_RE      = re.compile(r"(?:v=|youtu\.be/|shorts/)([\w\-]{11})")
 STALL_SECONDS = 90
@@ -102,7 +121,7 @@ def setup(player):
     _player = player
     try: LEGACY_CACHE.mkdir(parents=True, exist_ok=True)
     except Exception: pass
-    player.add_log("Online plugin v5 loaded (:yt | :pl | :cache)"
+    player.add_log("Online plugin v6 loaded (:yt | :pl | :cache)"
                    + (" [unidecode]" if _translit else " [ascii-mode]"))
     player.plugin_hooks["on_command"].append(handle_command)
     player.plugin_hooks["on_play_request"].append(handle_play_request)
@@ -364,10 +383,27 @@ def _video_id(url):
     m = YT_ID_RE.search(url or "")
     return m.group(1) if m else hashlib.md5((url or "?").encode()).hexdigest()[:12]
 
-def _valid_audio(p):
+def _suffix(p):
     try:
-        return p.is_file() and p.stat().st_size > 1024 and \
-               p.suffix.lower().lstrip(".") in AUDIO_EXTS
+        return Path(p).suffix.lower().lstrip(".")
+    except Exception:
+        return ""
+
+def _valid_audio(p):
+    """A real audio file on disk (any container we allow into the index)."""
+    try:
+        p = Path(p)
+        return p.is_file() and p.stat().st_size > 1024 and _suffix(p) in AUDIO_EXTS
+    except Exception:
+        return False
+
+def playable(p):
+    """True when the audio engine can actually DECODE this file.
+    just_playback -> miniaudio reads mp3/ogg/opus/wav/flac only; .webm and
+    .m4a raise 'MA_ERROR' the moment load_file() touches them."""
+    try:
+        p = Path(p)
+        return p.is_file() and p.stat().st_size > 1024 and _suffix(p) in PLAYABLE_EXTS
     except Exception:
         return False
 
@@ -376,13 +412,14 @@ def cached_file_for(url):
     ent = _index_data().get(url)
     if ent:
         p = Path(ent.get("p", ""))
-        if _valid_audio(p): return p
+        if _valid_audio(p): return p          # repaired later if undecodable
     vid = _video_id(url)
     best = None
     try:
         for f in LEGACY_CACHE.glob(vid + ".*"):
             if not _valid_audio(f): continue
-            prio = AUDIO_EXTS.index(f.suffix.lower().lstrip("."))
+            # a decodable copy always wins over an undecodable one
+            prio = (0 if playable(f) else 1, AUDIO_EXTS.index(_suffix(f)))
             if best is None or prio < best[0]: best = (prio, f)
     except Exception: pass
     return best[1] if best else None
@@ -398,15 +435,391 @@ def safe_filename(name, fallback="track"):
     return s or fallback
 
 def find_downloaded(base):
-    best = None
+    """Newest file yt-dlp produced for this title, preferring a decodable one
+    that belongs to that same download (the WebM source is kept alongside)."""
+    cands = []
     try:
         for f in Path(base).parent.glob(Path(base).name + ".*"):
-            if f.suffix.lower() in (".part", ".ytdl", ".tmp", ".json"): continue
-            if _valid_audio(f) and (best is None or
-                                    f.stat().st_mtime > best.stat().st_mtime):
-                best = f
-    except Exception: pass
-    return best
+            if _suffix(f) in ("part", "ytdl", "tmp", "json"): continue
+            if _valid_audio(f): cands.append(f)
+    except Exception:
+        return None
+    if not cands: return None
+    def _mt(f):
+        try: return f.stat().st_mtime
+        except OSError: return 0.0
+    # newest file wins (that is what yt-dlp just wrote); a decodable copy is
+    # only used when it is just as new, so a stale .opus can never mask a
+    # re-downloaded .webm - that one must go through remux again.
+    best = max(cands, key=_mt)
+    if playable(best):
+        return best
+    tied = [f for f in cands if playable(f) and abs(_mt(f) - _mt(best)) <= 0.05]
+    return max(tied, key=_mt) if tied else best
+
+
+# ==========================================================================
+# PLAYABILITY REPAIR :: pure-Python WebM/Matroska (Opus) -> Ogg Opus
+# --------------------------------------------------------------------------
+# No ffmpeg, no DLL, no re-encode: we read the EBML container, pull the Opus
+# packets out of it and repack them into Ogg pages with correct granule
+# positions.  A 4 MB track is done in a fraction of a second, the audio is
+# identical, and the result decodes natively in the player.
+# ==========================================================================
+class RemuxError(Exception):
+    pass
+
+
+def _bitrev8(b):
+    b = ((b & 0xF0) >> 4) | ((b & 0x0F) << 4)
+    b = ((b & 0xCC) >> 2) | ((b & 0x33) << 2)
+    b = ((b & 0xAA) >> 1) | ((b & 0x55) << 1)
+    return b
+
+
+_OGG_BITS = bytes(_bitrev8(i) for i in range(256))
+_OPUS_MS  = (10, 20, 40, 60) * 3 + (10, 20, 10, 20) + (2.5, 5, 10, 20) * 4
+
+
+def _ogg_crc(page):
+    """Ogg's CRC-32 (poly 0x04C11DB7, init 0, no reflection).  zlib does the
+    byte crunching after every byte is bit-reversed - checked field by field
+    against pages muxed by ffmpeg."""
+    v = zlib.crc32(page.translate(_OGG_BITS), 0xFFFFFFFF) ^ 0xFFFFFFFF
+    v = ((v & 0xFFFF0000) >> 16) | ((v & 0x0000FFFF) << 16)
+    v = ((v & 0xFF00FF00) >> 8) | ((v & 0x00FF00FF) << 8)
+    v = ((v & 0xF0F0F0F0) >> 4) | ((v & 0x0F0F0F0F) << 4)
+    v = ((v & 0xCCCCCCCC) >> 2) | ((v & 0x33333333) << 2)
+    v = ((v & 0xAAAAAAAA) >> 1) | ((v & 0x55555555) << 1)
+    return v
+
+
+def _ogg_page(flag, granule, serial, pageno, laces, payload):
+    seg = bytes(laces)
+    page = bytearray(b"OggS\x00" + bytes([flag & 0xFF]) +
+                     struct.pack("<Q", granule & 0xFFFFFFFFFFFFFFFF) +
+                     struct.pack("<I", serial & 0xFFFFFFFF) +
+                     struct.pack("<I", pageno & 0xFFFFFFFF) +
+                     b"\x00\x00\x00\x00" + bytes([len(seg)]) + seg)
+    page += payload
+    struct.pack_into("<I", page, 22, _ogg_crc(bytes(page)))
+    return bytes(page)
+
+
+def _lace_all(data):
+    full, rem = divmod(len(data), 255)
+    return [255] * full + [rem]
+
+
+# --- EBML (WebM) reading --------------------------------------------------
+def _ebml_id(buf, i):
+    b = buf[i]
+    if not b: raise RemuxError("bad EBML id")
+    mask, ln = 0x80, 1
+    while ln < 8 and not (b & mask):
+        mask >>= 1; ln += 1
+    return int.from_bytes(buf[i:i + ln], "big"), ln
+
+
+def _ebml_size(buf, i):
+    b = buf[i]
+    if not b: raise RemuxError("bad EBML size")
+    mask, ln = 0x80, 1
+    while ln < 8 and not (b & mask):
+        mask >>= 1; ln += 1
+    val = b & (0xFF >> ln)
+    for k in range(1, ln):
+        val = (val << 8) | buf[i + k]
+    return val, ln, val == (1 << (7 * ln)) - 1     # every data bit set = unknown
+
+
+def _ebml_elem(buf, i, end):
+    """-> (element id, payload start, payload end), or None when done."""
+    if i + 1 >= end: return None
+    eid, idlen = _ebml_id(buf, i)
+    size, slen, unknown = _ebml_size(buf, i + idlen)
+    start = i + idlen + slen
+    if start >= end: return None
+    stop = end if unknown else min(start + size, end)
+    if stop < start: raise RemuxError("bad EBML size")
+    return eid, start, stop
+
+
+def _uint(buf, a, b, default=0):
+    if b <= a: return default
+    v = 0
+    for i in range(a, min(b, a + 8)):
+        v = (v << 8) | buf[i]
+    return v
+
+
+def _sint(buf, a, b, default=0):
+    if b <= a: return default
+    n = min(b - a, 8)
+    v = _uint(buf, a, a + n)
+    if buf[a] & 0x80: v -= 1 << (8 * n)
+    return v
+
+
+def _vint(buf, i):
+    b = buf[i]
+    if not b: raise RemuxError("bad block vint")
+    mask, ln = 0x80, 1
+    while ln < 8 and not (b & mask):
+        mask >>= 1; ln += 1
+    v = b & (0xFF >> ln)
+    for k in range(1, ln):
+        v = (v << 8) | buf[i + k]
+    return v, ln
+
+
+def _opus_samples(pkt):
+    """Decoded length of one Opus packet, in 48 kHz samples (RFC 6771 toc)."""
+    toc = pkt[0]
+    c = toc & 3
+    if c == 0: frames = 1
+    elif c == 1: frames = 2
+    elif c == 2: frames = 3
+    else:
+        if len(pkt) < 2 or (toc >> 2) & 1:
+            raise RemuxError("unsupported Opus packet framing")
+        frames = pkt[1]
+    return int(_OPUS_MS[toc >> 3] * 48) * frames
+
+
+def _block_frames(buf, start, stop, track):
+    """Un-lace one Matroska block -> [packets]; None for other tracks."""
+    num, ln = _vint(buf, start)
+    if num != track: return None
+    j = start + ln + 2                                 # track + timecode
+    if j >= stop: raise RemuxError("truncated block")
+    lacing = buf[j] & 0x06
+    j += 1
+    if lacing == 0:                                    # plain single packet
+        return [bytes(buf[j:stop])]
+    if lacing == 0x02:                                 # Xiph lacing
+        sizes, k, total = [], j, 0
+        while True:
+            if k >= stop: raise RemuxError("bad Xiph lacing")
+            s = 0
+            while k < stop and buf[k] == 255:
+                s += 255; k += 1
+            if k >= stop: raise RemuxError("bad Xiph lacing")
+            s += buf[k]; k += 1
+            sizes.append(s); total += s
+            if k + total == stop: break
+            if k + total > stop: raise RemuxError("bad Xiph lacing")
+        frames, m = [], k
+        for s in sizes:
+            frames.append(bytes(buf[m:m + s])); m += s
+        return frames
+    if lacing == 0x04:                                 # fixed-size lacing
+        avail = stop - j - 1
+        for n in (buf[j] + 1, buf[j]):
+            if n > 0 and avail % n == 0:
+                size = avail // n
+                return [bytes(buf[j + 1 + p * size:j + 1 + (p + 1) * size])
+                        for p in range(n)]
+        raise RemuxError("bad fixed lacing")
+    raise RemuxError("EBML lacing is not supported")   # never seen in the wild
+
+
+# --- Ogg Opus writing -----------------------------------------------------
+class _OggOpusWriter:
+    """Packet queue -> Ogg pages.  Packets are never split across pages, so a
+    page's granule position is simply the decoded-sample count so far."""
+
+    def __init__(self, fh, opus_head):
+        self.fh      = fh
+        self.serial  = random.randrange(1 << 32)
+        self.pageno  = 0
+        self.laces   = []
+        self.payload = bytearray()
+        self.gran    = 0
+        self.total   = 0
+        self.trim_ns = 0
+        self._write(0x02, 0, [len(opus_head)], opus_head)             # BOS
+        tags = (b"OpusTags" + struct.pack("<I", 9) + b"sweetvibe" +
+                struct.pack("<I", 0))
+        self._write(0x00, 0, _lace_all(tags), tags)
+
+    def _write(self, flag, gran, laces, payload):
+        self.fh.write(_ogg_page(flag, gran, self.serial, self.pageno,
+                                laces, payload))
+        self.pageno += 1
+
+    def add(self, pkt):
+        need = len(pkt) // 255 + 1
+        if self.laces and len(self.laces) + need > 255:
+            self._flush(0x00)
+        full, rem = divmod(len(pkt), 255)
+        self.laces += [255] * full + [rem]
+        self.payload += pkt
+        self.total += _opus_samples(pkt)
+        self.gran = self.total
+
+    def _flush(self, flag):
+        if not self.laces: return
+        self._write(flag, self.gran, self.laces, self.payload)
+        self.laces = []
+        self.payload = bytearray()
+
+    def close(self):
+        if self.total <= 0:
+            raise RemuxError("no audio frames found")
+        gran = self.total
+        if self.trim_ns > 0:                 # DiscardPadding is in nanoseconds
+            gran = max(0, gran - int(self.trim_ns * 48000 / 1e9))
+        self.gran = gran
+        self._flush(0x04)                    # EOS
+
+
+def _opus_head(priv, channels):
+    if priv[:8] == b"OpusHead" and len(priv) >= 19:
+        return bytes(priv)                   # keep pre-skip / mapping as muxed
+    if not 1 <= channels <= 2:
+        raise RemuxError("Opus track without a usable header")
+    return (b"OpusHead" + bytes([1, channels]) + struct.pack("<H", 0) +
+            struct.pack("<I", 48000) + struct.pack("<h", 0) + bytes([0]))
+
+
+def _find_opus_track(buf, start, end):
+    i = start
+    while i < end:
+        el = _ebml_elem(buf, i, end)
+        if el is None: break
+        eid, ps, pe = el
+        if eid == 0xAE:                                # TrackEntry
+            num, priv, ch, codec = 0, b"", 1, b""
+            j = ps
+            while j < pe:
+                sub = _ebml_elem(buf, j, pe)
+                if sub is None: break
+                sid, ss, se = sub
+                if   sid == 0xD7:   num    = _uint(buf, ss, se)
+                elif sid == 0x86:    codec = bytes(buf[ss:se])
+                elif sid == 0x63A2:  priv  = bytes(buf[ss:se])
+                elif sid == 0xE0:                           # Audio
+                    k = ss
+                    while k < se:
+                        a = _ebml_elem(buf, k, se)
+                        if a is None: break
+                        if a[0] == 0x9F:
+                            ch = _uint(buf, a[1], a[2], 1) or 1
+                        k = a[2]
+                j = se
+            if codec[:7] == b"A_OPUS" or priv[:8] == b"OpusHead":
+                return {"num": num, "priv": priv, "ch": ch}
+        i = pe
+    return None
+
+
+def _walk_cluster(buf, start, end, track, out):
+    i = start
+    while i < end:
+        el = _ebml_elem(buf, i, end)
+        if el is None: break
+        eid, ps, pe = el
+        if eid == 0x1F43B675:                           # next Cluster
+            return i                                    # (unknown-size case)
+        if eid == 0xA3:                                 # SimpleBlock
+            for fr in _block_frames(buf, ps, pe, track) or ():
+                if fr: out.add(fr)
+        elif eid == 0xA0:                               # BlockGroup
+            j = ps
+            while j < pe:
+                sub = _ebml_elem(buf, j, pe)
+                if sub is None: break
+                if sub[0] == 0xA1:
+                    for fr in _block_frames(buf, sub[1], sub[2], track) or ():
+                        if fr: out.add(fr)
+                elif sub[0] == 0x75A2:                  # DiscardPadding (ns)
+                    pad = _sint(buf, sub[1], sub[2])
+                    if pad > 0: out.trim_ns = pad
+                j = sub[2]
+        i = pe
+    return i
+
+
+def remux_to_ogg(src, dst):
+    """Rewrite a WebM/Matroska file holding Opus audio as an Ogg Opus file.
+    True on success; raises RemuxError when the file cannot be remuxed."""
+    src, dst = Path(src), Path(dst)
+    if src.stat().st_size < 64:
+        raise RemuxError("file too small")
+    tmp = Path(str(dst) + ".part")
+    with open(src, "rb") as fh:
+        mm = mmap.mmap(fh.fileno(), 0, access=mmap.ACCESS_READ)
+        try:
+            n, seg, i = len(mm), None, 0
+            while i < n:                                 # locate the Segment
+                el = _ebml_elem(mm, i, n)
+                if el is None: break
+                if el[0] == 0x18538067:
+                    seg = (el[1], el[2]); break
+                i = el[2]
+            if seg is None: raise RemuxError("not a WebM/Matroska file")
+            s0, s1 = seg
+
+            track, i = None, s0                          # Info / Tracks first
+            while i < s1:
+                el = _ebml_elem(mm, i, s1)
+                if el is None: break
+                eid, ps, pe = el
+                if eid == 0x1654AE6B:
+                    track = _find_opus_track(mm, ps, pe)
+                    if track: break
+                elif eid == 0x1F43B675:
+                    break                                # clusters before us
+                i = pe
+            if not track: raise RemuxError("no Opus audio track")
+
+            with open(tmp, "wb") as out:
+                wr = _OggOpusWriter(out,
+                                    _opus_head(track["priv"], track["ch"]))
+                i = s0
+                while i < s1:
+                    el = _ebml_elem(mm, i, s1)
+                    if el is None: break
+                    eid, ps, pe = el
+                    if eid == 0x1F43B675:                # Cluster
+                        i = _walk_cluster(mm, ps, pe, track["num"], wr)
+                        continue
+                    i = pe
+                wr.close()
+        finally:
+            mm.close()
+    os.replace(str(tmp), str(dst))
+    return True
+
+
+def ensure_playable(path):
+    """Return a path the audio engine can decode, remuxing WebM/MKV (Opus)
+    on the fly when needed.  None when nothing can be done for that file."""
+    try:
+        p = Path(path)
+    except Exception:
+        return None
+    if not p.is_file():
+        return None
+    if playable(p):
+        return p
+    if _suffix(p) not in REMUX_EXTS:
+        return None
+    dst = p.with_suffix(".opus")
+    try:
+        if playable(dst) and dst.stat().st_mtime >= p.stat().st_mtime:
+            return dst                                   # already repaired
+        if remux_to_ogg(p, dst) and playable(dst):
+            return dst
+    except Exception:
+        pass
+    try:
+        tmp = Path(str(dst) + ".part")
+        if tmp.is_file(): tmp.unlink()
+    except Exception:
+        pass
+    return None
 
 
 # ==========================================================================
@@ -510,6 +923,8 @@ def format_duration(seconds):
 # ==========================================================================
 def handle_play_request(item):
     try:
+        if item[0] == "file":
+            return _repair_browsed_file(item)
         if item[0] != "online": return False
         url = item[2]
         assert isinstance(url, str) and url
@@ -531,6 +946,51 @@ def handle_play_request(item):
     return True
 
 
+_NO_REPAIR = set()
+
+def _repair_browsed_file(item):
+    """Auto-repair on play: a WebM/MKV the engine cannot decode (old v5
+    downloads, playlist entries, anything from the BROWSE list) is remuxed to
+    Ogg Opus first; the second pass then plays it like any other file."""
+    try:
+        p = Path(item[2])
+    except Exception:
+        return False
+    if not p.is_file() or playable(p):
+        return False
+    if str(p) in _NO_REPAIR:
+        _player.add_log("Can't decode .%s (need mp3/ogg/opus/wav/flac)."
+                        % (_suffix(p) or "?"))
+        return False
+    _player.add_log("Repairing " + _short(p.name, 28) + " ...")
+    fixed = ensure_playable(p)
+    if not fixed or fixed == p:
+        _NO_REPAIR.add(str(p))
+        _player.add_log("Can't decode .%s (need mp3/ogg/opus/wav/flac)."
+                        % (_suffix(p) or "?"))
+        return False
+    try:
+        idx = _player.display_playlist.index(item)
+    except ValueError:
+        idx = None
+    for lst in (_player.display_playlist, _player.all_items):
+        for i, it in enumerate(lst):
+            try:
+                if it[0] == "file" and Path(it[2]) == p:
+                    lst[i] = ("file", it[1], fixed, it[3])
+            except Exception:
+                pass
+    if idx is None:
+        _player.add_log("Repaired -> " + fixed.name)
+        return False
+    _player.add_log("Repaired -> " + fixed.name + "  playing.")
+    try:
+        _player.play_index(idx)          # second pass sees a playable path
+    except Exception as e:
+        _player.add_log("Playback Error: " + english(str(e), "?")[:22])
+    return True
+
+
 def _resolve_worker(item):
     url = item[2]
     with ENG.lock_guard:
@@ -540,9 +1000,13 @@ def _resolve_worker(item):
     try:
         hit = cached_file_for(url)
         if hit:
-            _player.add_log("CACHED - instant play.")
-            ENG.set_banner(">> Instant: " + _short(item[1]))
-            _finalize(item, hit); return
+            good = ensure_playable(hit)
+            if good:
+                if good != hit: _index_set(url, good)
+                _player.add_log("CACHED - instant play.")
+                ENG.set_banner(">> Instant: " + _short(item[1]))
+                _finalize(item, good); return
+            _player.add_log("Cached copy can't be decoded - re-downloading...")
 
         dd        = get_download_dir()
         base_name = safe_filename(item[1], "youtube_track")
@@ -557,6 +1021,18 @@ def _resolve_worker(item):
         ok, path, err = _run_download(url, base, st)
 
         if ok and path:
+            st["phase"] = "converting"
+            good = ensure_playable(path)
+            if not good:
+                st.update(status="failed", ts_failed=time.time())
+                _player.add_log("STREAM SAVED BUT UNPLAYABLE:")
+                _player.add_log("   | this stream is .%s - the player only"
+                                % (_suffix(path) or "?"))
+                _player.add_log("   | decodes mp3/ogg/opus/wav/flac.")
+                _player.add_log("Tip: pick another result.")
+                ENG.set_banner("X Unplayable: " + _short(item[1], 24), "red")
+                return
+            path = good
             _index_set(url, path)
             st.update(status="done", pct=100, file=path)
             ENG.set_banner("OK Saved: " + _short(path.name, 30))
@@ -585,6 +1061,7 @@ def _wait_then_finish(item):
         st = ENG.downloads.get(url)
         if st is None or st.get("status") == "done":
             path = (st or {}).get("file") or cached_file_for(url)
+            path = path and ensure_playable(path)
             if path: _finalize(item, path)
             return
         if st and st.get("status") == "failed":
@@ -594,13 +1071,12 @@ def _wait_then_finish(item):
 
 
 def _run_download(url, base, st):
+    """Grab only a stream we can decode (Opus first) - no external converter.
+    The WebM source is repacked to Ogg Opus by ensure_playable() afterwards."""
     outtmpl = str(base) + ".%(ext)s"
-    ffmpeg_ok = shutil.which("ffmpeg") is not None
-    fmt_chain = []
-    if ffmpeg_ok:
-        fmt_chain.append(["-x", "--audio-format", "mp3",
-                          "-f", "bestaudio/bestaudio*/best"])
-    fmt_chain.append(["-f", "bestaudio/bestaudio*/best"])
+    fmt_chain = [["-f", "bestaudio[acodec=opus]/bestaudio[ext=webm]/"
+                        "bestaudio[acodec=mp3]/bestaudio[ext=mp3]/"
+                        "bestaudio/bestaudio*/best"]]
 
     err_tail = []
     yt_dlp = _yt_dlp_command()
