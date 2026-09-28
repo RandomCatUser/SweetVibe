@@ -4,6 +4,17 @@ SweetVibe is a terminal music player for Windows and Python. It provides local
 music browsing, PC-wide scanning, playlists, audio visualization, customizable
 keybindings, automatic updates, and optional YouTube discovery with yt-dlp.
 
+## Trailer
+
+[![SweetVibe trailer](trailer/screenshots/03-now-playing.png)](trailer/SweetVibe-trailer.mp4)
+
+**[Watch the trailer](trailer/SweetVibe-trailer.mp4)** — 74 seconds, 1920x1080
+at 30 fps, rendered from the real UI.
+
+Prefer it interactive? Open `trailer/index.html` in a browser (click or `Space`
+to pause, `R` to restart, arrows to jump 5 s). The full timeline, the screenshot
+pipeline and the render commands live in [trailer/README.md](trailer/README.md).
+
 ## Features
 
 - Terminal interface built with `asciimatics`.
@@ -165,6 +176,16 @@ Plugins are ordinary Python files stored in `plugins/`. SweetVibe loads every
 drawing, ticks, playback requests, playback start, and playback stop.
 
 Read the complete API guide in [docs/plugins.md](docs/plugins.md).
+
+## Contributors
+
+Thanks to the AI assistants that helped build SweetVibe alongside its author:
+
+- **Claude** (Anthropic) — documentation, the Lyrics plugin, and the online
+  playback work.
+- **Charm Crush** — an AI coding tool that contributed to the project.
+
+Contributions are welcome: open an issue or a pull request.
 
 ## License
 

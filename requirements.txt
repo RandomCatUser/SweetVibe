@@ -1,0 +1,17 @@
+# SweetVibe runtime dependencies
+# Install with:  python -m pip install -r requirements.txt
+
+# --- Core (required, main.py exits without these) ---
+asciimatics==1.15.0      # TUI rendering, input, 16-colour screen
+tinytag==2.3.2           # audio metadata (title/artist/length)
+just-playback==1.0.0     # playback engine
+
+# --- Optional but recommended ---
+numpy==2.5.3             # audio-reactive spectrum analysis
+soundfile==0.14.0        # audio-reactive spectrum analysis
+pillow==12.3.0           # album art PNG re-export (plugins/albumart.py)
+unidecode==1.4.0         # transliterated online search (plugins/online.py)
+yt-dlp==2026.8.19        # YouTube / online streaming (plugins/online.py)
+
+# --- Build only (not needed to run from source) ---
+pyinstaller==6.22.3      # EXE build, see docs/building.md
