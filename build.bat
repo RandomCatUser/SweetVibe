@@ -23,17 +23,38 @@ echo PyInstaller finished successfully.
 echo.
 echo Building the Inno Setup installer...
 
-set ISCC_PATH="C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
-if not exist %ISCC_PATH% (
-    set ISCC_PATH="C:\Program Files\Inno Setup 6\ISCC.exe"
+REM Locate ISCC.exe: machine-wide installs, then per-user installs (winget
+REM puts Inno Setup in %LOCALAPPDATA%\Programs), then PATH.
+REM Set ISCC_PATH="C:\path\to\ISCC.exe" beforehand to force a specific one.
+if not defined ISCC_PATH (
+    for %%P in (
+        "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+        "C:\Program Files\Inno Setup 6\ISCC.exe"
+        "%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe"
+        "C:\Program Files (x86)\Inno Setup 7\ISCC.exe"
+        "C:\Program Files\Inno Setup 7\ISCC.exe"
+        "%LOCALAPPDATA%\Programs\Inno Setup 7\ISCC.exe"
+    ) do (
+        if not defined ISCC_PATH if exist %%P set ISCC_PATH=%%P
+    )
 )
 
-if exist %ISCC_PATH% (
-    %ISCC_PATH% setup.iss
-) else (
-    echo Warning: Could not find Inno Setup compiler in standard paths. Trying PATH...
-    iscc setup.iss
+if not defined ISCC_PATH (
+    for /f "delims=" %%I in ('where iscc 2^>nul') do (
+        if not defined ISCC_PATH set ISCC_PATH="%%~fI"
+    )
 )
+
+if not defined ISCC_PATH (
+    echo ERROR: Inno Setup compiler ^(ISCC.exe^) was not found.
+    echo        Install Inno Setup 6 ^(https://jrsoftware.org/isinfo.php^)
+    echo        or set  ISCC_PATH="C:\path\to\ISCC.exe"  before building.
+    pause
+    exit /b 1
+)
+
+echo Using %ISCC_PATH%
+%ISCC_PATH% setup.iss
 
 if %ERRORLEVEL% neq 0 (
     echo Inno Setup compilation failed.
