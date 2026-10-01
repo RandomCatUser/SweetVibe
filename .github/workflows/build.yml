@@ -1,0 +1,125 @@
+name: build
+
+# Builds the portable app and the Windows installer on every push and PR.
+# A tag like v1.4.3 additionally publishes the installer as a release asset.
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # needed only to attach the installer to a tagged release
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build Windows installer
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # yt-dlp is imported as a library at runtime, so it must be present
+          # for the spec to collect it. Same list as requirements.txt.
+          python -m pip install -r requirements.txt
+          python -m pip install pyinstaller
+
+      - name: Verify yt-dlp imports as a library
+        # main.spec aborts without this. Failing here gives a clear message
+        # instead of a confusing spec error.
+        run: python -c "import yt_dlp; print('yt-dlp', yt_dlp.version.__version__)"
+
+      - name: Locate Inno Setup (ISCC.exe)
+        # windows-latest ships Inno Setup, but the path differs between image
+        # versions, so probe the usual locations and install it if missing.
+        shell: pwsh
+        run: |
+          $found = $null
+          $candidates = @(
+            "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+            "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
+            "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe",
+            "${env:ProgramFiles(x86)}\Inno Setup 7\ISCC.exe",
+            "$env:ProgramFiles\Inno Setup 7\ISCC.exe"
+          )
+          foreach ($c in $candidates) {
+            if ($c -and (Test-Path $c)) { $found = $c; break }
+          }
+          if (-not $found) {
+            Write-Host "Inno Setup not found, installing via Chocolatey..."
+            choco install innosetup --yes --no-progress --limit-output
+            foreach ($c in $candidates) {
+              if ($c -and (Test-Path $c)) { $found = $c; break }
+            }
+          }
+          if (-not $found) {
+            $cmd = Get-Command iscc -ErrorAction SilentlyContinue
+            if ($cmd) { $found = $cmd.Source }
+          }
+          if (-not $found) { throw "ISCC.exe was not found and could not be installed." }
+          Write-Host "Using $found"
+          "ISCC_PATH=$found" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Build the executable (PyInstaller)
+        run: python -m PyInstaller main.spec --noconfirm --clean
+
+      - name: Build the installer (Inno Setup)
+        run: $env:ISCC_PATH setup.iss
+
+      - name: Verify no third-party executable was bundled
+        # The whole point of the yt-dlp-as-a-library change: the release must
+        # contain SweetVibe.exe and nothing else.
+        shell: pwsh
+        run: |
+          $exes = Get-ChildItem dist\SweetVibe -Recurse -File -Filter *.exe
+          Write-Host "Executables in dist\SweetVibe:"
+          $exes | ForEach-Object { Write-Host "  $($_.Name)" }
+          $extra = $exes | Where-Object { $_.Name -ne 'SweetVibe.exe' }
+          if ($extra) {
+            Write-Error "Unexpected bundled executable(s): $($extra.Name -join ', ')"
+            exit 1
+          }
+          if (-not (Test-Path "dist\installer\Setup_Windows_x64.exe")) {
+            Write-Error "Installer was not produced."
+            exit 1
+          }
+          Write-Host "OK: single executable + installer"
+
+      - name: Upload the portable app
+        uses: actions/upload-artifact@v4
+        with:
+          name: SweetVibe-portable
+          path: dist/SweetVibe
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Upload the installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: SweetVibe-installer
+          path: dist/installer/Setup_Windows_x64.exe
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Publish the installer to a tagged release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/installer/Setup_Windows_x64.exe
+          generate_release_notes: true
