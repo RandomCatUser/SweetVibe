@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Documentation — SweetVibe</title>
+<meta name="description" content="SweetVibe documentation: quick start, commands, keybindings, plugins, architecture and building the installer." />
+<link rel="icon" href="https://raw.githubusercontent.com/RandomCatUser/SweetVibe/main/ico.ico" />
+<link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+
+<nav>
+  <div class="container nav-inner">
+    <a href="./index.html" class="logo-group">
+      <img src="https://raw.githubusercontent.com/RandomCatUser/SweetVibe/main/ico.ico" alt="" class="logo-img" />
+      <span>SweetVibe</span>
+    </a>
+    <div class="nav-links">
+      <a href="./docs.html">Docs</a>
+      <a href="https://github.com/RandomCatUser/SweetVibe" target="_blank" rel="noopener" class="hide-sm">GitHub
+        <svg class="ext" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+          <polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
+        </svg>
+      </a>
+      <!-- The one and only download button on the site. -->
+      <a href="https://github.com/RandomCatUser/SweetVibe/releases/latest"
+         target="_blank" rel="noopener" class="btn btn-accent" data-download>Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container docs-shell">
+
+  <!-- ══ Sidebar ═══════════════════════════════════════════════════════ -->
+  <aside class="side-nav" id="side-nav">
+    <a class="side-link active" href="#quickstart">Quick Start</a>
+    <a class="side-link" href="#commands">Commands</a>
+    <a class="side-link" href="#keybindings">Keybindings</a>
+    <a class="side-link" href="#youtube">YouTube</a>
+    <a class="side-link" href="#plugins">Plugin Development</a>
+    <a class="side-link sub" href="#hooks">Hooks</a>
+    <a class="side-link sub" href="#nonfile">Non-file items</a>
+    <a class="side-link" href="#spectrum">Spectrum &amp; Colors</a>
+    <a class="side-link" href="#architecture">Architecture</a>
+    <a class="side-link" href="#building">Building</a>
+    <a class="side-link" href="#troubleshooting">Troubleshooting</a>
+  </aside>
+
+  <!-- ══ Content ═══════════════════════════════════════════════════════ -->
+  <main class="doc-main">
+    <div class="doc-panel">
+
+      <h1>SweetVibe Docs</h1>
+      <p class="lede">
+        SweetVibe is a fast, keyboard-driven music player for the terminal. This is
+        everything you need to use it, extend it and build it from source.
+      </p>
+
+      <!-- ── Quick start ────────────────────────────────────────────── -->
+      <section class="doc-section" id="quickstart">
+        <h2>Quick Start</h2>
+        <p>
+          Install SweetVibe and start playing. The installer is a single signed
+          download; <strong>zero configuration required</strong>.
+        </p>
+
+        <h3>Installation</h3>
+        <p>
+          Ready-to-run installers for Windows. Use the <strong>Download</strong> button
+          in the top bar, or build from source if you would rather.
+        </p>
+        <div class="btn-row" style="justify-content:flex-start">
+          <a href="#building" class="btn btn-plain">Build from Source</a>
+        </div>
+
+        <h3>Running from source</h3>
+        <div class="code-block"><code>git clone https://github.com/RandomCatUser/SweetVibe
+cd SweetVibe
+python -m pip install -r requirements.txt
+python main.py</code></div>
+        <p>
+          Required packages are <code>asciimatics</code>, <code>tinytag</code> and
+          <code>just_playback</code> &mdash; the player exits with a clear message if
+          any are missing. <code>numpy</code> and <code>soundfile</code> are optional and
+          only enable the reactive spectrum. Music is read from the bundled
+          <code>songs/</code> folder.
+        </p>
+      </section>
+
+      <!-- ── Commands ───────────────────────────────────────────────── -->
+      <section class="doc-section" id="commands">
+        <h2>Commands</h2>
+        <p>Open the command bar with <kbd>:</kbd>, then type one of these.</p>
+
+        <table class="doc-table">
+          <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td><code>:settings</code></td><td>Open the in-app keybinding editor.</td></tr>
+            <tr><td><code>:update</code></td><td>Check GitHub for a newer release.</td></tr>
+            <tr><td><code>:yt &lt;query&gt;</code></td><td>Search YouTube and queue the results.</td></tr>
+            <tr><td><code>:sc &lt;query&gt;</code></td><td>Shortcut for the same search.</td></tr>
+            <tr><td><code>:pl list</code></td><td>List saved playlists.</td></tr>
+            <tr><td><code>:pl save &lt;name&gt;</code></td><td>Save the current queue as a playlist.</td></tr>
+            <tr><td><code>:pl load &lt;name&gt;</code></td><td>Append a playlist to the queue.</td></tr>
+            <tr><td><code>:pl play &lt;name&gt;</code></td><td>Replace the queue and start playing it.</td></tr>
+            <tr><td><code>:pl view &lt;name&gt;</code></td><td>Preview a playlist without loading it.</td></tr>
+            <tr><td><code>:pl del &lt;name&gt;</code></td><td>Delete a playlist.</td></tr>
+            <tr><td><code>:cache info</code></td><td>Show the download folder and cache stats.</td></tr>
+            <tr><td><code>:cache dir &lt;path&gt;</code></td><td>Pin where downloads are written.</td></tr>
+            <tr><td><code>:cache clear</code></td><td>Wipe legacy cache files. Music folders untouched.</td></tr>
+            <tr><td><code>:cache open</code></td><td>Open the download folder in Explorer.</td></tr>
+            <tr><td><code>:girl</code></td><td>Dancing girl. <code>:girl fast</code> / <code>:girl slow</code> change the tempo.</td></tr>
+            <tr><td><code>:meow</code></td><td>Dancing cat, same speed options.</td></tr>
+            <tr><td><code>:lyrics</code></td><td>Fetch and scroll lyrics for the playing track.</td></tr>
+            <tr><td><code>:art</code></td><td>Render embedded album art as a PNG.</td></tr>
+          </tbody>
+        </table>
+
+        <p>Close any overlay with <kbd>Ctrl</kbd>+<kbd>B</kbd> or <kbd>Esc</kbd>.</p>
+      </section>
+
+      <!-- ── Keybindings ────────────────────────────────────────────── -->
+      <section class="doc-section" id="keybindings">
+        <h2>Keybindings</h2>
+        <p>
+          <code>:settings</code> opens the editor. Bind a key with <kbd>Enter</kbd>,
+          remove one with <kbd>Backspace</kbd>, press <kbd>R</kbd> to restore defaults.
+          Your bindings are stored as plain text in <code>~/.sweetvibe_keybinds</code>,
+          so they survive reinstalls and you can edit that file by hand.
+        </p>
+
+        <table class="doc-table">
+          <thead><tr><th>Action</th><th>Default</th></tr></thead>
+          <tbody>
+            <tr><td>Move through library</td><td><kbd>&uarr;</kbd> <kbd>&darr;</kbd></td></tr>
+            <tr><td>Play / open folder</td><td><kbd>Enter</kbd></td></tr>
+            <tr><td>Cycle view mode</td><td><kbd>Tab</kbd></td></tr>
+            <tr><td>Back / close overlay</td><td><kbd>Esc</kbd></td></tr>
+            <tr><td>Play / pause</td><td><kbd>Space</kbd></td></tr>
+            <tr><td>Seek &plusmn;10 seconds</td><td><kbd>&larr;</kbd> <kbd>&rarr;</kbd></td></tr>
+            <tr><td>Volume up / down</td><td><kbd>+</kbd> <kbd>-</kbd></td></tr>
+            <tr><td>Shuffle</td><td><kbd>S</kbd></td></tr>
+            <tr><td>Repeat</td><td><kbd>R</kbd></td></tr>
+            <tr><td>Filter library</td><td><kbd>/</kbd></td></tr>
+            <tr><td>Command bar</td><td><kbd>:</kbd></td></tr>
+            <tr><td>Quit</td><td><kbd>Q</kbd></td></tr>
+            <tr><td>Force quit</td><td><kbd>Ctrl</kbd>+<kbd>C</kbd></td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ── YouTube ────────────────────────────────────────────────── -->
+      <section class="doc-section" id="youtube">
+        <h2>YouTube</h2>
+        <p>
+          <code>:yt &lt;query&gt;</code> opens a search panel. Results are sanitised to
+          plain ASCII so nothing can break the layout, then <kbd>Enter</kbd> queues a
+          track and downloads it in the background with live progress.
+        </p>
+        <p>
+          Downloads follow the folder you are browsing, or the folder pinned with
+          <code>:cache dir</code>. Once fetched, a track is cached forever and replays
+          instantly.
+        </p>
+        <p><strong>Under the hood.</strong> The online plugin imports yt-dlp as an
+        ordinary Python library. No <code>yt-dlp.exe</code> is downloaded, shipped or
+        executed &mdash; the release contains exactly one executable,
+        <code>SweetVibe.exe</code>. Progress comes from yt-dlp's progress hooks and the
+        finished path from <code>prepare_filename()</code>, so there is no subprocess and
+        no console window.</p>
+        <p>
+          yt-dlp is optional. If the package is missing the player logs a short message
+          and keeps working. Install it with
+          <code>python -m pip install -U yt-dlp</code>.
+        </p>
+        <p>
+          YouTube streams arrive as WebM/Opus or M4A/AAC, which the audio engine cannot
+          decode directly. The plugin remuxes WebM/Opus to Ogg Opus in pure Python &mdash;
+          no FFmpeg, no re-encoding &mdash; then deletes the source, so a download leaves
+          exactly one playable file.
+        </p>
+      </section>
+
+      <!-- ── Plugins ────────────────────────────────────────────────── -->
+      <section class="doc-section" id="plugins">
+        <h2>Plugin Development</h2>
+        <p>
+          Any <code>.py</code> file in <code>plugins/</code> is loaded at startup. If it
+          defines <code>setup(player)</code>, that function is called with the player
+          object. Everything else is optional.
+        </p>
+
+        <div class="code-block"><code>def setup(the_player):
+    global player
+    player = the_player
+    player.plugin_hooks["on_command"].append(my_command)
+    player.plugin_hooks["on_draw"].append(my_draw)
+
+def my_command(cmd, raw_text):
+    if cmd == ":hello":
+        player.add_log("Hello from my plugin!")
+        return True          # True = handled, stop looking
+    return False
+
+def my_draw(screen):
+    from asciimatics.screen import Screen
+    screen.print_at(" hi ", 2, 0, Screen.COLOUR_CYAN, Screen.A_BOLD)</code></div>
+
+        <h3 id="hooks">Hooks</h3>
+        <table class="doc-table">
+          <thead><tr><th>Hook</th><th>Called</th></tr></thead>
+          <tbody>
+            <tr><td><code>on_command(cmd, raw_text)</code></td><td>For each command-bar entry.</td></tr>
+            <tr><td><code>on_key(key_str, action)</code></td><td>For each key press.</td></tr>
+            <tr><td><code>on_play_request(item)</code></td><td>Before playback; return True to take over.</td></tr>
+            <tr><td><code>on_play(filepath)</code></td><td>When a local track starts.</td></tr>
+            <tr><td><code>on_stop()</code></td><td>When playback stops.</td></tr>
+            <tr><td><code>on_draw(screen)</code></td><td>Every frame, on top of the player UI.</td></tr>
+            <tr><td><code>on_tick()</code></td><td>Every frame. Good for animation state.</td></tr>
+          </tbody>
+        </table>
+
+        <h3 id="nonfile">Non-file items</h3>
+        <p>
+          Queue items are 4-tuples. Local tracks are
+          <code>("file", name, Path, duration)</code>. To inject something your plugin
+          resolves itself &mdash; a stream, a remote track &mdash; use
+          <code>("online", name, url, duration)</code> and handle it in
+          <code>on_play_request</code>, returning True once you have taken it on.
+        </p>
+        <p>Bundled plugins: <code>online.py</code>, <code>lyrics.py</code>, <code>albumart.py</code>, <code>girl.py</code>, <code>meow.py</code>.</p>
+      </section>
+
+      <!-- ── Spectrum ───────────────────────────────────────────────── -->
+      <section class="doc-section" id="spectrum">
+        <h2>Spectrum &amp; Colors</h2>
+        <p>Three visualizer modes are available:</p>
+        <ul>
+          <li><strong>Automatic</strong> &mdash; pure timer, works without numpy.</li>
+          <li><strong>Reactive</strong> &mdash; driven by the live audio stream. Needs <code>numpy</code> and <code>soundfile</code>.</li>
+          <li><strong>Script</strong> &mdash; you supply the bar values yourself.</li>
+        </ul>
+        <p>
+          Bar colours are set by name and mapped through <code>COLOR_MAP</code> in
+          <code>main.py</code>, so any of the 16 terminal colours works. The five defaults
+          live in <code>DEFAULT_COLORS</code>.
+        </p>
+      </section>
+
+      <!-- ── Architecture ───────────────────────────────────────────── -->
+      <section class="doc-section" id="architecture">
+        <h2>Architecture</h2>
+        <p>The whole player is a single file, <code>main.py</code>:</p>
+        <table class="doc-table">
+          <thead><tr><th>Part</th><th>What lives there</th></tr></thead>
+          <tbody>
+            <tr><td>Imports</td><td>Core dependency checks and optional extras.</td></tr>
+            <tr><td>Constants</td><td><code>AUDIO_EXTS</code>, <code>COLOR_MAP</code>, <code>DEFAULT_KEYBINDS</code>.</td></tr>
+            <tr><td>Helpers</td><td>Update checks, formatting, path resolution.</td></tr>
+            <tr><td><code>KityPlayer</code></td><td>All state: playback, navigation, scanning, drawing.</td></tr>
+            <tr><td><code>demo()</code></td><td>Builds the asciimatics <code>Screen</code> and runs the loop.</td></tr>
+          </tbody>
+        </table>
+        <p>
+          Plugins never import <code>main.py</code>. They receive the player object and
+          read <code>player.screen</code>, <code>player.display_playlist</code> and the
+          rest of the public API from it.
+        </p>
+      </section>
+
+      <!-- ── Building ───────────────────────────────────────────────── -->
+      <section class="doc-section" id="building">
+        <h2>Building</h2>
+        <p>You need Python with the dependencies installed, PyInstaller, and Inno Setup 6.</p>
+        <div class="code-block"><code>python -m pip install -r requirements.txt pyinstaller
+python -m pip install --upgrade yt-dlp
+.\build.ps1</code></div>
+        <p>
+          That runs <code>pyinstaller main.spec</code> and then compiles
+          <code>setup.iss</code>. Output lands in <code>dist\SweetVibe\</code> and
+          <code>dist\installer\</code>.
+        </p>
+        <p>
+          <code>main.spec</code> collects <code>asciimatics</code>,
+          <code>tinytag</code>, <code>just_playback</code> and the <code>yt_dlp</code>
+          package, then bundles the <code>songs/</code> and <code>plugins/</code> folders.
+          Because yt-dlp is collected as a package rather than an executable, the release
+          ships a single <code>.exe</code> &mdash; which also keeps antivirus false
+          positives away.
+        </p>
+        <p>Bump the version in <code>main.py</code>, <code>version_info.txt</code> and <code>setup.iss</code> together.</p>
+      </section>
+
+      <!-- ── Troubleshooting ────────────────────────────────────────── -->
+      <section class="doc-section" id="troubleshooting">
+        <h2>Troubleshooting</h2>
+
+        <h3>&ldquo;yt-dlp module missing&rdquo;</h3>
+        <p>Run <code>python -m pip install -U yt-dlp</code>. Everything else keeps working without it.</p>
+
+        <h3>A track will not play, or stops immediately</h3>
+        <p>
+          The audio engine decodes mp3, ogg, opus, wav and flac. If a file uses some
+          other container the player says so and remuxes it when it can &mdash; try the
+          track again, or pick a different search result.
+        </p>
+
+        <h3>A download is not where I expect it</h3>
+        <p><code>:cache dir &lt;path&gt;</code> pins the target. <code>:cache info</code> shows the current one.</p>
+
+        <h3>Antivirus flags the installer</h3>
+        <p>
+          Unsigned Python bundles are a known false positive. Confirm you built it
+          yourself from source, or add an exclusion. The build no longer bundles any
+          third-party executable.
+        </p>
+
+        <h3>The terminal looks cramped</h3>
+        <p>SweetVibe needs roughly 80&times;24 or better. Widen the window or reduce the font size.</p>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="container footer-inner">
+    <div>SweetVibe &middot; Licensed under Apache 2.0</div>
+    <div class="footer-links">
+      <a href="./index.html">Home</a>
+      <a href="https://github.com/RandomCatUser/SweetVibe" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/RandomCatUser/SweetVibe/blob/main/LICENSE" target="_blank" rel="noopener">License</a>
+    </div>
+  </div>
+</footer>
+
+<div id="download-toast" class="toast" role="status" aria-live="polite">
+  <img src="https://raw.githubusercontent.com/RandomCatUser/SweetVibe/main/ico.ico" alt="" class="toast-icon" />
+  <div class="toast-content">
+    <span class="toast-title">Download started</span>
+    <span class="toast-desc">Grabbing the latest Windows installer.</span>
+  </div>
+  <button class="toast-close" type="button" aria-label="Dismiss">&times;</button>
+</div>
+
+<script src="./script.js"></script>
+
+</body>
+</html>

@@ -4,848 +4,229 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>SweetVibe — Terminal Music Player</title>
-<meta name="description" content="A sleek, terminal-based music player built with Python. Retro-modern aesthetic, native audio engine, and full keybind customization." />
+<meta name="description" content="A terminal music player for Windows and Python. Native audio engine, live audio-reactive spectrum, YouTube discovery and an in-app keybinding editor." />
 <link rel="icon" href="https://raw.githubusercontent.com/RandomCatUser/SweetVibe/main/ico.ico" />
-<style>
-  :root {
-    --bg: #fafafa;
-    --bg-elevated: #ffffff;
-    --text: #121212;
-    --muted: #6b7280;
-    --border: #e5e7eb;
-    --accent: #d6336c;
-    --code-bg: #f3f4f6;
-    --mono: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Menlo, Consolas, monospace;
-    --sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  }
-
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  html { scroll-behavior: smooth; }
-
-  body {
-    font-family: var(--sans);
-    background: var(--bg);
-    color: var(--text);
-    line-height: 1.6;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-
-  /* Subtle background texture */
-  body::before {
-    content: "";
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: -1;
-    background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
-    background-size: 24px 24px;
-    opacity: 0.5;
-  }
-
-  a { color: var(--text); text-decoration: none; transition: color 0.2s ease; }
-  a:hover { color: var(--accent); }
-
-  .container { max-width: 760px; margin: 0 auto; padding: 0 24px; }
-
-  /* Navigation */
-  nav {
-    border-bottom: 1px solid var(--border);
-    padding: 16px 0;
-    position: sticky;
-    top: 0;
-    background: rgba(250, 250, 250, 0.85);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    z-index: 10;
-  }
-
-  .nav-inner {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .logo-group {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-weight: 600;
-    font-size: 1.1rem;
-    letter-spacing: -0.01em;
-  }
-
-  .logo-img {
-    width: 28px;
-    height: 28px;
-    display: block;
-  }
-
-  .nav-links {
-    display: flex;
-    align-items: center;
-    gap: 28px;
-    font-size: 0.95rem;
-    font-weight: 500;
-  }
-
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 16px;
-    background: var(--text);
-    color: var(--bg-elevated);
-    border: 1px solid var(--text);
-    border-radius: 6px;
-    font-size: 0.9rem;
-    font-weight: 500;
-    transition: all 0.2s ease;
-    cursor: pointer;
-  }
-
-  .btn:hover {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--bg-elevated);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(214, 51, 108, 0.2);
-  }
-
-  .btn-outline {
-    background: transparent;
-    color: var(--text);
-    border: 1px solid var(--border);
-  }
-
-  .btn-outline:hover {
-    background: var(--bg-elevated);
-    border-color: var(--text);
-    color: var(--text);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-  }
-
-  /* Hero */
-  header {
-    padding: 100px 0 80px;
-    text-align: center;
-  }
-
-  .hero-logo {
-    width: 88px;
-    height: 88px;
-    margin: 0 auto 32px;
-    display: block;
-    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
-  }
-
-  h1 {
-    font-size: 2.75rem;
-    font-weight: 800;
-    letter-spacing: -0.03em;
-    line-height: 1.15;
-    margin-bottom: 20px;
-  }
-
-  .hero-sub {
-    font-size: 1.15rem;
-    color: var(--muted);
-    max-width: 540px;
-    margin: 0 auto 40px;
-    line-height: 1.6;
-  }
-
-  .hero-cta {
-    display: flex;
-    gap: 12px;
-    justify-content: center;
-    flex-wrap: wrap;
-  }
-
-  /* Sections */
-  section {
-    padding: 60px 0;
-    border-top: 1px solid var(--border);
-  }
-
-  .section-header {
-    display: flex;
-    align-items: baseline;
-    gap: 12px;
-    margin-bottom: 40px;
-  }
-
-  .section-number {
-    font-family: var(--mono);
-    font-size: 0.85rem;
-    color: var(--accent);
-    font-weight: 600;
-  }
-
-  .section-title {
-    font-size: 1.5rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-  }
-
-  /* Features List */
-  .feature-list {
-    list-style: none;
-  }
-
-  .feature-item {
-    display: grid;
-    grid-template-columns: 180px 1fr;
-    gap: 32px;
-    padding: 24px 0;
-    border-bottom: 1px solid var(--border);
-    align-items: start;
-  }
-
-  .feature-item:last-child { border-bottom: none; }
-
-  .feature-title {
-    font-weight: 600;
-    font-size: 1.05rem;
-  }
-
-  .feature-desc {
-    color: var(--muted);
-    font-size: 1rem;
-    line-height: 1.6;
-  }
-
-  .feature-tag {
-    display: inline-block;
-    font-family: var(--mono);
-    font-size: 0.75rem;
-    color: var(--accent);
-    background: rgba(214, 51, 108, 0.08);
-    padding: 2px 8px;
-    border-radius: 4px;
-    margin-top: 8px;
-    border: 1px solid rgba(214, 51, 108, 0.1);
-  }
-
-  /* Controls Grid */
-  .controls-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
-  }
-
-  .kbd-group {
-    background: var(--bg-elevated);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 24px;
-    transition: box-shadow 0.2s ease;
-  }
-
-  .kbd-group:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
-  }
-
-  /* Plugin guide */
-  .guide-intro {
-    color: var(--muted);
-    max-width: 680px;
-    margin-bottom: 28px;
-  }
-
-  .guide-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
-    margin-bottom: 24px;
-  }
-
-  .guide-block {
-    background: var(--bg-elevated);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 24px;
-  }
-
-  .guide-block h3 {
-    font-size: 1rem;
-    margin-bottom: 10px;
-  }
-
-  .guide-block p,
-  .guide-block li {
-    color: var(--muted);
-    font-size: 0.95rem;
-  }
-
-  .guide-block ul {
-    padding-left: 20px;
-  }
-
-  .code-wrap {
-    overflow-x: auto;
-    background: #171717;
-    border-radius: 8px;
-    padding: 22px;
-  }
-
-  .code-wrap pre {
-    color: #f4f4f5;
-    font-family: var(--mono);
-    font-size: 0.82rem;
-    line-height: 1.7;
-    white-space: pre;
-  }
-
-  .kbd-group h4 {
-    font-size: 0.85rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--muted);
-    margin-bottom: 16px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .kbd-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .kbd-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 0.95rem;
-  }
-
-  .keys {
-    display: flex;
-    gap: 4px;
-  }
-
-  kbd {
-    font-family: var(--mono);
-    font-size: 0.8rem;
-    background: var(--code-bg);
-    border: 1px solid var(--border);
-    border-bottom-width: 2px;
-    border-radius: 4px;
-    padding: 3px 8px;
-    color: var(--text);
-    min-width: 28px;
-    text-align: center;
-  }
-
-  /* Footer */
-  footer {
-    padding: 48px 0;
-    border-top: 1px solid var(--border);
-    color: var(--muted);
-    font-size: 0.9rem;
-  }
-
-  .footer-inner {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 16px;
-  }
-
-  .footer-links {
-    display: flex;
-    gap: 24px;
-  }
-
-  /* Documentation cards */
-  .docs-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
-  }
-
-  .doc-card {
-    display: block;
-    background: var(--bg-elevated);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 24px;
-    transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
-  }
-
-  .doc-card:hover {
-    border-color: var(--accent);
-    box-shadow: 0 4px 12px rgba(214, 51, 108, 0.1);
-    transform: translateY(-1px);
-  }
-
-  .doc-card-title {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    font-weight: 600;
-    font-size: 1rem;
-    margin-bottom: 8px;
-  }
-
-  .doc-card-title .arrow {
-    color: var(--accent);
-    font-weight: 700;
-  }
-
-  .doc-card p {
-    color: var(--muted);
-    font-size: 0.95rem;
-    line-height: 1.6;
-  }
-
-  .doc-card .doc-tag {
-    display: inline-block;
-    font-family: var(--mono);
-    font-size: 0.75rem;
-    color: var(--accent);
-    background: rgba(214, 51, 108, 0.08);
-    padding: 2px 8px;
-    border-radius: 4px;
-    margin-top: 12px;
-    border: 1px solid rgba(214, 51, 108, 0.1);
-  }
-
-
-  /* Download Toast Notification */
-  .toast {
-    position: fixed;
-    bottom: 24px;
-    right: 24px;
-    background: var(--bg-elevated);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 16px 20px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-    transform: translateY(150%);
-    opacity: 0;
-    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease;
-    z-index: 100;
-    max-width: 340px;
-  }
-
-  .toast.show {
-    transform: translateY(0);
-    opacity: 1;
-  }
-
-  .toast-icon {
-    width: 32px;
-    height: 32px;
-    flex-shrink: 0;
-  }
-
-  .toast-content {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .toast-title {
-    font-weight: 600;
-    font-size: 0.95rem;
-  }
-
-  .toast-desc {
-    font-size: 0.85rem;
-    color: var(--muted);
-  }
-
-  .toast-close {
-    background: none;
-    border: none;
-    color: var(--muted);
-    cursor: pointer;
-    padding: 4px;
-    align-self: flex-start;
-    line-height: 1;
-    font-size: 1.2rem;
-    transition: color 0.2s;
-  }
-
-  .toast-close:hover {
-    color: var(--text);
-  }
-
-  /* Responsive */
-  @media (max-width: 640px) {
-    h1 { font-size: 2.25rem; }
-    .hero-sub { font-size: 1.05rem; }
-    .nav-links { gap: 16px; }
-    .nav-links a:not(.btn) { display: none; }
-    
-    .feature-item {
-      grid-template-columns: 1fr;
-      gap: 8px;
-    }
-
-    .controls-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .guide-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .docs-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .footer-inner {
-      flex-direction: column;
-      align-items: flex-start;
-    }
-
-    .toast {
-      left: 16px;
-      right: 16px;
-      max-width: none;
-      bottom: 16px;
-    }
-  }
-</style>
+<link rel="stylesheet" href="./style.css" />
 </head>
 <body>
 
-<!-- Navigation -->
+<!-- ══ Nav ══════════════════════════════════════════════════════════════ -->
 <nav>
   <div class="container nav-inner">
-    <a href="#" class="logo-group">
-      <img src="https://raw.githubusercontent.com/RandomCatUser/SweetVibe/main/ico.ico" alt="SweetVibe Logo" class="logo-img">
+    <a href="./index.html" class="logo-group">
+      <img src="https://raw.githubusercontent.com/RandomCatUser/SweetVibe/main/ico.ico" alt="" class="logo-img" />
       <span>SweetVibe</span>
     </a>
     <div class="nav-links">
-      <a href="#features">Features</a>
-      <a href="#controls">Controls</a>
-      <a href="#plugins">Plugins</a>
-      <a href="#docs">Docs</a>
-      <a href="https://github.com/RandomCatUser/SweetVibe" target="_blank" rel="noopener">GitHub</a>
-      <a href="https://github.com/RandomCatUser/SweetVibe/releases/latest" target="_blank" rel="noopener" class="btn btn-download-trigger">
-        Download
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      <a href="./docs.html">Docs</a>
+      <a href="https://github.com/RandomCatUser/SweetVibe" target="_blank" rel="noopener" class="hide-sm">GitHub
+        <svg class="ext" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+          <polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
+        </svg>
       </a>
     </div>
   </div>
 </nav>
 
-<!-- Hero -->
+<!-- ══ Hero ════════════════════════════════════════════════════════════ -->
 <header>
   <div class="container">
-    <img src="https://raw.githubusercontent.com/RandomCatUser/SweetVibe/main/ico.ico" alt="SweetVibe Logo" class="hero-logo">
-    <h1>Terminal music,<br>tuned to taste.</h1>
-    <p class="hero-sub">A sleek, Python-based TUI music player. Native audio engine, dynamic visualizer, and full keybind customization without the bloat.</p>
-    <div class="hero-cta">
-      <a href="https://github.com/RandomCatUser/SweetVibe/releases/latest" target="_blank" rel="noopener" class="btn btn-download-trigger">
-        Download for Windows
-      </a>
-      <a href="https://github.com/RandomCatUser/SweetVibe" target="_blank" rel="noopener" class="btn btn-outline">
-        View Source
-      </a>
+
+    <!-- The dancing girl, straight out of the :girl easter egg. -->
+    <figure class="terminal" id="girl-terminal">
+      <figcaption class="terminal-bar">
+        <div class="terminal-lights">
+          <span class="dot dot-r"></span>
+          <span class="dot dot-y"></span>
+          <span class="dot dot-g"></span>
+        </div>
+        <div class="terminal-title">
+          <img src="https://raw.githubusercontent.com/RandomCatUser/SweetVibe/main/ico.ico" alt="" />
+          <span>SweetVibe</span>
+        </div>
+        <span class="terminal-hint" id="girl-state">click to pause</span>
+      </figcaption>
+      <pre class="terminal-body" id="girl-art" aria-label="Animated ASCII art of a dancing girl"></pre>
+    </figure>
+
+    <p class="hero-lede">
+      SweetVibe is a fast, keyboard-driven music player for the terminal, with a native
+      audio engine, a live audio-reactive spectrum and YouTube discovery &mdash; all in
+      Python, with no external binaries.
+    </p>
+
+    <!-- Visually hidden: the hero is the terminal, but the page still needs a
+         single meaningful h1 for SEO and screen readers. -->
+    <h1 class="sr-only">SweetVibe &mdash; a terminal music player for Windows and Python</h1>
+
+    <!-- The one and only download button on the site. -->
+    <div class="btn-row">
+      <a href="https://github.com/RandomCatUser/SweetVibe/releases/latest"
+         target="_blank" rel="noopener" class="btn btn-accent" data-download>Download</a>
+      <a href="./docs.html" class="btn btn-plain">Documentation</a>
     </div>
   </div>
 </header>
 
-<!-- Features -->
-<section id="features">
+<!-- ══ Features ════════════════════════════════════════════════════════ -->
+<section class="section" id="features">
   <div class="container">
-    <div class="section-header">
-      <span class="section-number">01</span>
+    <div class="section-head">
       <h2 class="section-title">Features</h2>
+      <p class="section-sub">Everything ships in one executable. No FFmpeg, no bundled binaries.</p>
     </div>
-    <ul class="feature-list">
-      <li class="feature-item">
-        <div class="feature-title">Native Audio Engine</div>
-        <div>
-          <p class="feature-desc">Reliable, low-latency playback without external dependencies like FFmpeg.</p>
-          <span class="feature-tag">just_playback</span>
-        </div>
-      </li>
-      <li class="feature-item">
-        <div class="feature-title">Custom Keybinds</div>
-        <div>
-          <p class="feature-desc">Fully remappable controls saved to a plain-text file. Bind multiple keys or reset to defaults.</p>
-          <span class="feature-tag">in-app editor</span>
-        </div>
-      </li>
-      <li class="feature-item">
-        <div class="feature-title">Smart Library</div>
-        <div>
-          <p class="feature-desc">Flawless character support for Chinese, Japanese, and Korean titles. Includes a PC-wide scanner.</p>
-          <span class="feature-tag">CJK support</span>
-        </div>
-      </li>
-      <li class="feature-item">
-        <div class="feature-title">Dynamic Spectrum</div>
-        <div>
-          <p class="feature-desc">An advanced audio visualizer with falling peak caps that reacts to your music in real time.</p>
-          <span class="feature-tag">4-harmonic</span>
-        </div>
-      </li>
-      <li class="feature-item">
-        <div class="feature-title">Auto-Updates</div>
-        <div>
-          <p class="feature-desc">Checks GitHub and downloads the latest Windows installer automatically when a new version drops.</p>
-          <span class="feature-tag">:update</span>
-        </div>
-      </li>
-    </ul>
+
+    <div class="feature-grid">
+      <article class="feature">
+        <h3>Native Audio Engine</h3>
+        <p>Low-latency playback through <code>just_playback</code>. Decodes mp3, ogg, opus, wav and flac.</p>
+      </article>
+      <article class="feature">
+        <h3>Live Spectrum</h3>
+        <p>Automatic, reactive and script-driven visualizer modes with falling peak caps.</p>
+      </article>
+      <article class="feature">
+        <h3>YouTube Discovery</h3>
+        <p>Search and download straight from the command bar, with caching and playlists.</p>
+      </article>
+      <article class="feature">
+        <h3>Smart Library</h3>
+        <p>Browse the bundled <code>songs/</code> folder or scan the whole PC. Full CJK support.</p>
+      </article>
+      <article class="feature">
+        <h3>Remappable Keys</h3>
+        <p>An in-app editor writes your bindings to plain text. Bind multiple keys or reset.</p>
+      </article>
+      <article class="feature">
+        <h3>Five Plugins</h3>
+        <p>Online, lyrics, album art, a dancing girl and a dancing cat. All work fully offline.</p>
+      </article>
+    </div>
   </div>
 </section>
 
-<!-- Controls -->
-<section id="controls">
+<!-- ══ Controls ════════════════════════════════════════════════════════ -->
+<section class="section" id="controls">
   <div class="container">
-    <div class="section-header">
-      <span class="section-number">02</span>
+    <div class="section-head">
       <h2 class="section-title">Default Controls</h2>
+      <p class="section-sub">Every one of these is rebindable in <code>:settings</code>.</p>
     </div>
-    
+
     <div class="controls-grid">
       <div class="kbd-group">
         <h4>Navigation</h4>
         <div class="kbd-list">
-          <div class="kbd-item">
-            <span>Navigate library</span>
-            <div class="keys"><kbd>↑</kbd><kbd>↓</kbd></div>
-          </div>
-          <div class="kbd-item">
-            <span>Play / Open folder</span>
-            <div class="keys"><kbd>Enter</kbd></div>
-          </div>
-          <div class="kbd-item">
-            <span>Cycle mode</span>
-            <div class="keys"><kbd>Tab</kbd></div>
-          </div>
-          <div class="kbd-item">
-            <span>Go back / Exit</span>
-            <div class="keys"><kbd>Esc</kbd></div>
-          </div>
+          <div class="kbd-item"><span>Move through library</span><div class="keys"><kbd>&uarr;</kbd><kbd>&darr;</kbd></div></div>
+          <div class="kbd-item"><span>Play / open folder</span><div class="keys"><kbd>Enter</kbd></div></div>
+          <div class="kbd-item"><span>Cycle view mode</span><div class="keys"><kbd>Tab</kbd></div></div>
+          <div class="kbd-item"><span>Back / close</span><div class="keys"><kbd>Esc</kbd></div></div>
         </div>
       </div>
 
       <div class="kbd-group">
         <h4>Playback</h4>
         <div class="kbd-list">
-          <div class="kbd-item">
-            <span>Play / Pause</span>
-            <div class="keys"><kbd>Space</kbd></div>
-          </div>
-          <div class="kbd-item">
-            <span>Seek ±10s</span>
-            <div class="keys"><kbd>←</kbd><kbd>→</kbd></div>
-          </div>
-          <div class="kbd-item">
-            <span>Volume Up / Down</span>
-            <div class="keys"><kbd>+</kbd><kbd>-</kbd></div>
-          </div>
-          <div class="kbd-item">
-            <span>Shuffle / Repeat</span>
-            <div class="keys"><kbd>S</kbd><kbd>R</kbd></div>
-          </div>
+          <div class="kbd-item"><span>Play / pause</span><div class="keys"><kbd>Space</kbd></div></div>
+          <div class="kbd-item"><span>Seek &plusmn;10s</span><div class="keys"><kbd>&larr;</kbd><kbd>&rarr;</kbd></div></div>
+          <div class="kbd-item"><span>Volume up / down</span><div class="keys"><kbd>+</kbd><kbd>-</kbd></div></div>
+          <div class="kbd-item"><span>Shuffle / repeat</span><div class="keys"><kbd>S</kbd><kbd>R</kbd></div></div>
         </div>
       </div>
 
       <div class="kbd-group">
-        <h4>Command & Search</h4>
+        <h4>Search &amp; Queue</h4>
         <div class="kbd-list">
-          <div class="kbd-item">
-            <span>Search / Filter</span>
-            <div class="keys"><kbd>/</kbd></div>
-          </div>
-          <div class="kbd-item">
-            <span>Command Bar</span>
-            <div class="keys"><kbd>Ctrl</kbd><kbd>O</kbd></div>
-          </div>
-          <div class="kbd-item">
-            <span>Quit Player</span>
-            <div class="keys"><kbd>Q</kbd></div>
-          </div>
-          <div class="kbd-item">
-            <span>Force Quit</span>
-            <div class="keys"><kbd>Ctrl</kbd><kbd>C</kbd></div>
-          </div>
+          <div class="kbd-item"><span>Filter library</span><div class="keys"><kbd>/</kbd></div></div>
+          <div class="kbd-item"><span>Command bar</span><div class="keys"><kbd>:</kbd></div></div>
+          <div class="kbd-item"><span>YouTube search</span><div class="keys"><kbd>:yt</kbd></div></div>
+          <div class="kbd-item"><span>Playlist commands</span><div class="keys"><kbd>:pl</kbd></div></div>
         </div>
       </div>
 
       <div class="kbd-group">
-        <h4>In-App Editor</h4>
+        <h4>Player</h4>
         <div class="kbd-list">
-          <div class="kbd-item">
-            <span>Open Editor</span>
-            <div class="keys"><kbd>:settings</kbd></div>
-          </div>
-          <div class="kbd-item">
-            <span>Bind new key</span>
-            <div class="keys"><kbd>Enter</kbd></div>
-          </div>
-          <div class="kbd-item">
-            <span>Remove key</span>
-            <div class="keys"><kbd>Backspace</kbd></div>
-          </div>
-          <div class="kbd-item">
-            <span>Reset defaults</span>
-            <div class="keys"><kbd>R</kbd></div>
-          </div>
+          <div class="kbd-item"><span>Keybinding editor</span><div class="keys"><kbd>:settings</kbd></div></div>
+          <div class="kbd-item"><span>Check for updates</span><div class="keys"><kbd>:update</kbd></div></div>
+          <div class="kbd-item"><span>Quit</span><div class="keys"><kbd>Q</kbd></div></div>
+          <div class="kbd-item"><span>Force quit</span><div class="keys"><kbd>Ctrl</kbd><kbd>C</kbd></div></div>
         </div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- Plugin Guide -->
-<section id="plugins">
+<!-- ══ Docs ════════════════════════════════════════════════════════════ -->
+<section class="section" id="docs">
   <div class="container">
-    <div class="section-header">
-      <span class="section-number">03</span>
-      <h2 class="section-title">Build a Plugin</h2>
-    </div>
-    <p class="guide-intro">SweetVibe plugins are ordinary Python files. Put a <code>.py</code> file in the <code>plugins/</code> folder beside <code>main.py</code> or the installed executable. The player loads it at startup and calls <code>setup(player)</code> when that function exists.</p>
-
-    <div class="guide-grid">
-      <div class="guide-block">
-        <h3>1. Create the file</h3>
-        <p>Create <code>plugins/my_plugin.py</code>. Keep plugin code self-contained and use the player object passed to <code>setup</code>.</p>
-      </div>
-      <div class="guide-block">
-        <h3>2. Register hooks</h3>
-        <p>Append functions to <code>player.plugin_hooks</code>. Return <code>True</code> from <code>on_command</code>, <code>on_key</code>, or <code>on_play_request</code> when your plugin handled the event.</p>
-      </div>
-    </div>
-
-    <div class="guide-block" style="margin-bottom: 24px;">
-      <h3>Available hooks</h3>
-      <ul>
-        <li><code>on_command(cmd, raw_text)</code> handles command-bar commands.</li>
-        <li><code>on_key(key_str, action)</code> handles keyboard input.</li>
-        <li><code>on_play_request(item)</code> can replace normal playback.</li>
-        <li><code>on_play(filepath)</code> runs when a local track starts.</li>
-        <li><code>on_stop()</code> runs when playback stops.</li>
-        <li><code>on_draw(screen)</code> draws on top of the player interface.</li>
-        <li><code>on_tick()</code> runs once per player frame.</li>
-      </ul>
-    </div>
-
-    <div class="code-wrap">
-      <pre><code>from asciimatics.screen import Screen
-
-def custom_command(cmd, raw_text):
-    if cmd == ":hello":
-        player.add_log("Hello from my plugin!")
-        return True
-    return False
-
-def custom_draw(screen):
-    screen.print_at(" Plugin active ", 2, 0,
-                    Screen.COLOUR_CYAN, Screen.A_BOLD)
-
-def setup(the_player):
-    global player
-    player = the_player
-    player.plugin_hooks["on_command"].append(custom_command)
-    player.plugin_hooks["on_draw"].append(custom_draw)</code></pre>
-    </div>
-
-    <div class="guide-grid" style="margin-top: 24px; margin-bottom: 0;">
-      <div class="guide-block">
-        <h3>Online tracks</h3>
-        <p>For custom online items, add a tuple such as <code>("online", name, url, duration)</code> to the playlist and handle it with <code>on_play_request</code>. Return <code>True</code> after starting your download or stream.</p>
-      </div>
-      <div class="guide-block">
-        <h3>Included plugins</h3>
-        <p>The packaged application keeps plugin files as Python files in <code>plugins/</code>. The built-in online plugin provides <code>:yt</code>, <code>:sc</code>, playlist commands, caching, and yt-dlp downloads.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- Documentation -->
-<section id="docs">
-  <div class="container">
-    <div class="section-header">
-      <span class="section-number">04</span>
+    <div class="section-head">
       <h2 class="section-title">Documentation</h2>
+      <p class="section-sub">
+        Guides for using, extending and building SweetVibe. They also live in the repo
+        under <code>docs/</code> so you can read them offline.
+      </p>
     </div>
-    <p class="guide-intro">Guides for extending, customizing, and building SweetVibe. Each guide is also in the repo under <code>docs/</code>.</p>
 
     <div class="docs-grid">
-      <a class="doc-card" href="https://github.com/RandomCatUser/SweetVibe/blob/main/docs/plugins.md" target="_blank" rel="noopener">
-        <div class="doc-card-title">Plugin Development <span class="arrow">→</span></div>
-        <p>Write plugins: register hooks, draw UI, add commands, and inject online streams into the queue.</p>
+      <a class="doc-card" href="./docs.html#quickstart">
+        <div class="doc-card-title">Quick Start <span class="arrow">&rarr;</span></div>
+        <p>Install the app or run it from source, and what the dependencies are for.</p>
+        <span class="doc-tag">getting started</span>
+      </a>
+      <a class="doc-card" href="./docs.html#commands">
+        <div class="doc-card-title">Commands <span class="arrow">&rarr;</span></div>
+        <p>Every <code>:</code> command: playlists, cache, settings, updates and easter eggs.</p>
+        <span class="doc-tag">reference</span>
+      </a>
+      <a class="doc-card" href="./docs.html#keybindings">
+        <div class="doc-card-title">Keybindings <span class="arrow">&rarr;</span></div>
+        <p>Rebind anything and edit <code>~/.sweetvibe_keybinds</code> by hand.</p>
+        <span class="doc-tag">reference</span>
+      </a>
+      <a class="doc-card" href="./docs.html#youtube">
+        <div class="doc-card-title">YouTube <span class="arrow">&rarr;</span></div>
+        <p>How downloads work, where they are saved, and how streams get made playable.</p>
+        <span class="doc-tag">plugins/online.py</span>
+      </a>
+      <a class="doc-card" href="./docs.html#plugins">
+        <div class="doc-card-title">Plugin Development <span class="arrow">&rarr;</span></div>
+        <p>Hooks, drawing, custom commands and injecting online streams into the queue.</p>
         <span class="doc-tag">plugins.md</span>
       </a>
-
-      <a class="doc-card" href="https://github.com/RandomCatUser/SweetVibe/blob/main/docs/architecture.md" target="_blank" rel="noopener">
-        <div class="doc-card-title">Source Architecture <span class="arrow">→</span></div>
-        <p>How the codebase is organized and where to make changes when customizing the source.</p>
-        <span class="doc-tag">architecture.md</span>
-      </a>
-
-      <a class="doc-card" href="https://github.com/RandomCatUser/SweetVibe/blob/main/docs/keybindings.md" target="_blank" rel="noopener">
-        <div class="doc-card-title">Keybindings &amp; Settings <span class="arrow">→</span></div>
-        <p>Remap every key and edit the settings file format, all actions, and key names.</p>
-        <span class="doc-tag">keybindings.md</span>
-      </a>
-
-      <a class="doc-card" href="https://github.com/RandomCatUser/SweetVibe/blob/main/docs/spectrum.md" target="_blank" rel="noopener">
-        <div class="doc-card-title">Spectrum &amp; Colors <span class="arrow">→</span></div>
-        <p>Pick spectrum modes and customize the visualizer palette, bars, and behavior.</p>
-        <span class="doc-tag">spectrum.md</span>
-      </a>
-
-      <a class="doc-card" href="https://github.com/RandomCatUser/SweetVibe/blob/main/docs/building.md" target="_blank" rel="noopener">
-        <div class="doc-card-title">Building the EXE <span class="arrow">→</span></div>
-        <p>Build the executable and installer, and avoid antivirus false positives.</p>
+      <a class="doc-card" href="./docs.html#building">
+        <div class="doc-card-title">Building <span class="arrow">&rarr;</span></div>
+        <p>Produce the executable and the Inno Setup installer yourself.</p>
         <span class="doc-tag">building.md</span>
-      </a>
-
-      <a class="doc-card" href="https://github.com/RandomCatUser/SweetVibe/blob/main/README.md" target="_blank" rel="noopener">
-        <div class="doc-card-title">Full README <span class="arrow">→</span></div>
-        <p>Features, quick start, commands, and links back to the whole guide set.</p>
-        <span class="doc-tag">README.md</span>
       </a>
     </div>
   </div>
 </section>
 
-<!-- Footer -->
+<!-- ══ Footer ══════════════════════════════════════════════════════════ -->
 <footer>
   <div class="container footer-inner">
-    <div>
-      SweetVibe &middot; Distributed under the Apache License 2.0
-    </div>
+    <div>SweetVibe &middot; Licensed under Apache 2.0</div>
     <div class="footer-links">
+      <a href="./docs.html">Documentation</a>
       <a href="https://github.com/RandomCatUser/SweetVibe" target="_blank" rel="noopener">GitHub</a>
-      <a href="https://github.com/RandomCatUser/SweetVibe/releases/latest" target="_blank" rel="noopener" class="btn-download-trigger">Download</a>
       <a href="https://github.com/RandomCatUser/SweetVibe/blob/main/LICENSE" target="_blank" rel="noopener">License</a>
     </div>
   </div>
 </footer>
 
-<!-- Thank You Toast -->
-<div id="download-toast" class="toast">
-  <img src="https://raw.githubusercontent.com/RandomCatUser/SweetVibe/main/ico.ico" alt="SweetVibe" class="toast-icon">
+<div id="download-toast" class="toast" role="status" aria-live="polite">
+  <img src="https://raw.githubusercontent.com/RandomCatUser/SweetVibe/main/ico.ico" alt="" class="toast-icon" />
   <div class="toast-content">
-    <span class="toast-title">Thank you for downloading!</span>
-    <span class="toast-desc">Your download should start shortly. Enjoy the vibes!</span>
+    <span class="toast-title">Download started</span>
+    <span class="toast-desc">Grabbing the latest Windows installer.</span>
   </div>
-  <button class="toast-close" onclick="hideToast()">×</button>
+  <button class="toast-close" type="button" aria-label="Dismiss">&times;</button>
 </div>
 
+<script src="./girl-frames.js"></script>
 <script src="./script.js"></script>
 
 </body>
