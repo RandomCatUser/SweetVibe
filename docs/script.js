@@ -119,7 +119,11 @@
 
     function mark(id) {
       items.forEach(function (i) {
-        i.link.classList.toggle('active', i.target.id === id);
+        if (i.target.id === id) {
+          i.link.setAttribute('aria-current', 'true');
+        } else {
+          i.link.removeAttribute('aria-current');
+        }
       });
     }
 

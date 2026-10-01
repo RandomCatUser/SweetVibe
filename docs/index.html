@@ -4,213 +4,202 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>SweetVibe — Terminal Music Player</title>
-<meta name="description" content="A terminal music player for Windows and Python. Native audio engine, live audio-reactive spectrum, YouTube discovery and an in-app keybinding editor." />
+<meta name="description" content="A fast, keyboard-driven music player for the terminal. Local library, live audio-reactive spectrum, YouTube discovery, and a keybinding editor." />
+<meta property="og:title" content="SweetVibe" />
+<meta property="og:description" content="A fast, keyboard-driven music player for the terminal." />
+<meta property="og:type" content="website" />
 <link rel="icon" href="https://raw.githubusercontent.com/RandomCatUser/SweetVibe/main/ico.ico" />
 <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
 
-<!-- ══ Nav ══════════════════════════════════════════════════════════════ -->
-<nav>
-  <div class="container nav-inner">
-    <a href="./index.html" class="logo-group">
-      <img src="https://raw.githubusercontent.com/RandomCatUser/SweetVibe/main/ico.ico" alt="" class="logo-img" />
+<header class="site">
+  <div class="container bar">
+    <a href="./index.html" class="brand">
+      <img src="https://raw.githubusercontent.com/RandomCatUser/SweetVibe/main/ico.ico" alt="" />
       <span>SweetVibe</span>
     </a>
-    <div class="nav-links">
+    <nav class="links">
+      <a href="#features">Features</a>
+      <a href="#keys">Keys</a>
       <a href="./docs.html">Docs</a>
       <a href="https://github.com/RandomCatUser/SweetVibe" target="_blank" rel="noopener" class="hide-sm">GitHub
         <svg class="ext" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-          <polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+          <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
         </svg>
       </a>
-    </div>
-  </div>
-</nav>
-
-<!-- ══ Hero ════════════════════════════════════════════════════════════ -->
-<header>
-  <div class="container">
-
-    <!-- The dancing girl, straight out of the :girl easter egg. -->
-    <figure class="terminal" id="girl-terminal">
-      <figcaption class="terminal-bar">
-        <div class="terminal-lights">
-          <span class="dot dot-r"></span>
-          <span class="dot dot-y"></span>
-          <span class="dot dot-g"></span>
-        </div>
-        <div class="terminal-title">
-          <img src="https://raw.githubusercontent.com/RandomCatUser/SweetVibe/main/ico.ico" alt="" />
-          <span>SweetVibe</span>
-        </div>
-        <span class="terminal-hint" id="girl-state">click to pause</span>
-      </figcaption>
-      <pre class="terminal-body" id="girl-art" aria-label="Animated ASCII art of a dancing girl"></pre>
-    </figure>
-
-    <p class="hero-lede">
-      SweetVibe is a fast, keyboard-driven music player for the terminal, with a native
-      audio engine, a live audio-reactive spectrum and YouTube discovery &mdash; all in
-      Python, with no external binaries.
-    </p>
-
-    <!-- Visually hidden: the hero is the terminal, but the page still needs a
-         single meaningful h1 for SEO and screen readers. -->
-    <h1 class="sr-only">SweetVibe &mdash; a terminal music player for Windows and Python</h1>
-
-    <!-- The one and only download button on the site. -->
-    <div class="btn-row">
       <a href="https://github.com/RandomCatUser/SweetVibe/releases/latest"
-         target="_blank" rel="noopener" class="btn btn-accent" data-download>Download</a>
-      <a href="./docs.html" class="btn btn-plain">Documentation</a>
-    </div>
+         target="_blank" rel="noopener" class="btn btn-brand" data-download>Download</a>
+    </nav>
   </div>
 </header>
 
-<!-- ══ Features ════════════════════════════════════════════════════════ -->
+<!-- ══ hero ═══════════════════════════════════════════════════════════ -->
+<div class="hero">
+  <div class="container">
+    <div class="window">
+      <div class="window-bar">
+        <div class="lights"><i></i><i></i><i></i></div>
+        <div class="window-title">
+          <img src="https://raw.githubusercontent.com/RandomCatUser/SweetVibe/main/ico.ico" alt="" />
+          <span>SweetVibe</span>
+        </div>
+        <span class="window-hint" id="girl-state">click to pause</span>
+      </div>
+      <pre class="ascii" id="girl-art" aria-label="Animated ASCII art of a dancing girl"></pre>
+    </div>
+
+    <div class="tagline">
+      <p>SweetVibe is a music player for the terminal, built in Python with a native audio engine,
+         a live audio-reactive spectrum and YouTube discovery. One executable, nothing bundled alongside it.</p>
+      <div class="btn-row">
+        <a href="./docs.html" class="btn">Documentation</a>
+      </div>
+    </div>
+
+    <h1 class="sr-only">SweetVibe — a music player for the terminal</h1>
+  </div>
+</div>
+
+<!-- ══ features ════════════════════════════════════════════════════════ -->
 <section class="section" id="features">
   <div class="container">
     <div class="section-head">
-      <h2 class="section-title">Features</h2>
-      <p class="section-sub">Everything ships in one executable. No FFmpeg, no bundled binaries.</p>
+      <h2 class="section-title">What it does</h2>
+      <p class="section-sub">Everything below ships inside the one installer.</p>
     </div>
 
-    <div class="feature-grid">
-      <article class="feature">
-        <h3>Native Audio Engine</h3>
-        <p>Low-latency playback through <code>just_playback</code>. Decodes mp3, ogg, opus, wav and flac.</p>
+    <div class="grid grid-3">
+      <article class="card">
+        <h3>Local library</h3>
+        <p>Browse the bundled <code>songs/</code> folder, or scan every drive on the machine. CJK titles render correctly.</p>
       </article>
-      <article class="feature">
-        <h3>Live Spectrum</h3>
-        <p>Automatic, reactive and script-driven visualizer modes with falling peak caps.</p>
+      <article class="card">
+        <h3>Live spectrum</h3>
+        <p>Automatic, reactive and script modes, with falling peak caps.</p>
       </article>
-      <article class="feature">
-        <h3>YouTube Discovery</h3>
-        <p>Search and download straight from the command bar, with caching and playlists.</p>
+      <article class="card">
+        <h3>YouTube</h3>
+        <p>Search and download from the command bar. Fetched tracks are cached and replay instantly.</p>
       </article>
-      <article class="feature">
-        <h3>Smart Library</h3>
-        <p>Browse the bundled <code>songs/</code> folder or scan the whole PC. Full CJK support.</p>
+      <article class="card">
+        <h3>Playlists</h3>
+        <p>Save the queue by name, load it back later, shuffle and repeat.</p>
       </article>
-      <article class="feature">
-        <h3>Remappable Keys</h3>
-        <p>An in-app editor writes your bindings to plain text. Bind multiple keys or reset.</p>
+      <article class="card">
+        <h3>Rebindable keys</h3>
+        <p>An in-app editor writes your bindings to a plain-text file you can also edit by hand.</p>
       </article>
-      <article class="feature">
-        <h3>Five Plugins</h3>
-        <p>Online, lyrics, album art, a dancing girl and a dancing cat. All work fully offline.</p>
+      <article class="card">
+        <h3>Easter eggs</h3>
+        <p>Five bundled plugins, all offline: a dancing girl, a dancing cat, lyrics and album art.</p>
       </article>
     </div>
   </div>
 </section>
 
-<!-- ══ Controls ════════════════════════════════════════════════════════ -->
-<section class="section" id="controls">
+<!-- ══ keys ════════════════════════════════════════════════════════════ -->
+<section class="section" id="keys">
   <div class="container">
     <div class="section-head">
-      <h2 class="section-title">Default Controls</h2>
-      <p class="section-sub">Every one of these is rebindable in <code>:settings</code>.</p>
+      <h2 class="section-title">Default keys</h2>
+      <p class="section-sub">All of these are rebindable in <code>:settings</code>.</p>
     </div>
 
-    <div class="controls-grid">
-      <div class="kbd-group">
+    <div class="keys-grid">
+      <div class="keys-card">
         <h4>Navigation</h4>
-        <div class="kbd-list">
-          <div class="kbd-item"><span>Move through library</span><div class="keys"><kbd>&uarr;</kbd><kbd>&darr;</kbd></div></div>
-          <div class="kbd-item"><span>Play / open folder</span><div class="keys"><kbd>Enter</kbd></div></div>
-          <div class="kbd-item"><span>Cycle view mode</span><div class="keys"><kbd>Tab</kbd></div></div>
-          <div class="kbd-item"><span>Back / close</span><div class="keys"><kbd>Esc</kbd></div></div>
-        </div>
+        <dl>
+          <div class="row"><dt>Move</dt><dd><kbd>&uarr;</kbd><kbd>&darr;</kbd></dd></div>
+          <div class="row"><dt>Play</dt><dd><kbd>Enter</kbd></dd></div>
+          <div class="row"><dt>View mode</dt><dd><kbd>Tab</kbd></dd></div>
+          <div class="row"><dt>Back</dt><dd><kbd>Esc</kbd></dd></div>
+        </dl>
       </div>
 
-      <div class="kbd-group">
+      <div class="keys-card">
         <h4>Playback</h4>
-        <div class="kbd-list">
-          <div class="kbd-item"><span>Play / pause</span><div class="keys"><kbd>Space</kbd></div></div>
-          <div class="kbd-item"><span>Seek &plusmn;10s</span><div class="keys"><kbd>&larr;</kbd><kbd>&rarr;</kbd></div></div>
-          <div class="kbd-item"><span>Volume up / down</span><div class="keys"><kbd>+</kbd><kbd>-</kbd></div></div>
-          <div class="kbd-item"><span>Shuffle / repeat</span><div class="keys"><kbd>S</kbd><kbd>R</kbd></div></div>
-        </div>
+        <dl>
+          <div class="row"><dt>Play / pause</dt><dd><kbd>Space</kbd></dd></div>
+          <div class="row"><dt>Seek 10s</dt><dd><kbd>&larr;</kbd><kbd>&rarr;</kbd></dd></div>
+          <div class="row"><dt>Volume</dt><dd><kbd>+</kbd><kbd>-</kbd></dd></div>
+          <div class="row"><dt>Shuffle / repeat</dt><dd><kbd>S</kbd><kbd>R</kbd></dd></div>
+        </dl>
       </div>
 
-      <div class="kbd-group">
-        <h4>Search &amp; Queue</h4>
-        <div class="kbd-list">
-          <div class="kbd-item"><span>Filter library</span><div class="keys"><kbd>/</kbd></div></div>
-          <div class="kbd-item"><span>Command bar</span><div class="keys"><kbd>:</kbd></div></div>
-          <div class="kbd-item"><span>YouTube search</span><div class="keys"><kbd>:yt</kbd></div></div>
-          <div class="kbd-item"><span>Playlist commands</span><div class="keys"><kbd>:pl</kbd></div></div>
-        </div>
+      <div class="keys-card">
+        <h4>Find</h4>
+        <dl>
+          <div class="row"><dt>Filter</dt><dd><kbd>/</kbd></dd></div>
+          <div class="row"><dt>Command bar</dt><dd><kbd>:</kbd></dd></div>
+          <div class="row"><dt>YouTube</dt><dd><kbd>:yt</kbd></dd></div>
+          <div class="row"><dt>Playlists</dt><dd><kbd>:pl</kbd></dd></div>
+        </dl>
       </div>
 
-      <div class="kbd-group">
+      <div class="keys-card">
         <h4>Player</h4>
-        <div class="kbd-list">
-          <div class="kbd-item"><span>Keybinding editor</span><div class="keys"><kbd>:settings</kbd></div></div>
-          <div class="kbd-item"><span>Check for updates</span><div class="keys"><kbd>:update</kbd></div></div>
-          <div class="kbd-item"><span>Quit</span><div class="keys"><kbd>Q</kbd></div></div>
-          <div class="kbd-item"><span>Force quit</span><div class="keys"><kbd>Ctrl</kbd><kbd>C</kbd></div></div>
-        </div>
+        <dl>
+          <div class="row"><dt>Settings</dt><dd><kbd>:settings</kbd></dd></div>
+          <div class="row"><dt>Updates</dt><dd><kbd>:update</kbd></dd></div>
+          <div class="row"><dt>Quit</dt><dd><kbd>Q</kbd></dd></div>
+          <div class="row"><dt>Force quit</dt><dd><kbd>Ctrl</kbd><kbd>C</kbd></dd></div>
+        </dl>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ══ Docs ════════════════════════════════════════════════════════════ -->
+<!-- ══ docs ════════════════════════════════════════════════════════════ -->
 <section class="section" id="docs">
   <div class="container">
     <div class="section-head">
       <h2 class="section-title">Documentation</h2>
-      <p class="section-sub">
-        Guides for using, extending and building SweetVibe. They also live in the repo
-        under <code>docs/</code> so you can read them offline.
-      </p>
+      <p class="section-sub">Written up in full in the repository under <code>docs/</code>.</p>
     </div>
 
-    <div class="docs-grid">
-      <a class="doc-card" href="./docs.html#quickstart">
-        <div class="doc-card-title">Quick Start <span class="arrow">&rarr;</span></div>
-        <p>Install the app or run it from source, and what the dependencies are for.</p>
-        <span class="doc-tag">getting started</span>
+    <div class="grid grid-3">
+      <a class="card" href="./docs.html#commands">
+        <h3>Commands</h3>
+        <p>Every <code>:</code> command with a one-line description.</p>
+        <span class="more">commands.md</span>
       </a>
-      <a class="doc-card" href="./docs.html#commands">
-        <div class="doc-card-title">Commands <span class="arrow">&rarr;</span></div>
-        <p>Every <code>:</code> command: playlists, cache, settings, updates and easter eggs.</p>
-        <span class="doc-tag">reference</span>
+      <a class="card" href="./docs.html#keys">
+        <h3>Keybindings</h3>
+        <p>Rebind anything, and the format of the settings file.</p>
+        <span class="more">keybindings.md</span>
       </a>
-      <a class="doc-card" href="./docs.html#keybindings">
-        <div class="doc-card-title">Keybindings <span class="arrow">&rarr;</span></div>
-        <p>Rebind anything and edit <code>~/.sweetvibe_keybinds</code> by hand.</p>
-        <span class="doc-tag">reference</span>
+      <a class="card" href="./docs.html#plugins">
+        <h3>Plugins</h3>
+        <p>Hooks, drawing, custom commands and online items.</p>
+        <span class="more">plugins.md</span>
       </a>
-      <a class="doc-card" href="./docs.html#youtube">
-        <div class="doc-card-title">YouTube <span class="arrow">&rarr;</span></div>
-        <p>How downloads work, where they are saved, and how streams get made playable.</p>
-        <span class="doc-tag">plugins/online.py</span>
+      <a class="card" href="./docs.html#youtube">
+        <h3>YouTube</h3>
+        <p>How downloads work and where the files land.</p>
+        <span class="more">online plugin</span>
       </a>
-      <a class="doc-card" href="./docs.html#plugins">
-        <div class="doc-card-title">Plugin Development <span class="arrow">&rarr;</span></div>
-        <p>Hooks, drawing, custom commands and injecting online streams into the queue.</p>
-        <span class="doc-tag">plugins.md</span>
+      <a class="card" href="https://github.com/RandomCatUser/SweetVibe/blob/main/docs/architecture.md" target="_blank" rel="noopener">
+        <h3>Architecture</h3>
+        <p>Source layout and where to make a change.</p>
+        <span class="more">architecture.md</span>
       </a>
-      <a class="doc-card" href="./docs.html#building">
-        <div class="doc-card-title">Building <span class="arrow">&rarr;</span></div>
-        <p>Produce the executable and the Inno Setup installer yourself.</p>
-        <span class="doc-tag">building.md</span>
+      <a class="card" href="./docs.html#building">
+        <h3>Building</h3>
+        <p>Produce the executable and installer yourself.</p>
+        <span class="more">building.md</span>
       </a>
     </div>
   </div>
 </section>
 
-<!-- ══ Footer ══════════════════════════════════════════════════════════ -->
-<footer>
-  <div class="container footer-inner">
-    <div>SweetVibe &middot; Licensed under Apache 2.0</div>
-    <div class="footer-links">
-      <a href="./docs.html">Documentation</a>
+<footer class="site">
+  <div class="container bar">
+    <div>SweetVibe &middot; Apache 2.0</div>
+    <div class="links">
+      <a href="./docs.html">Docs</a>
       <a href="https://github.com/RandomCatUser/SweetVibe" target="_blank" rel="noopener">GitHub</a>
       <a href="https://github.com/RandomCatUser/SweetVibe/blob/main/LICENSE" target="_blank" rel="noopener">License</a>
     </div>
@@ -218,12 +207,9 @@
 </footer>
 
 <div id="download-toast" class="toast" role="status" aria-live="polite">
-  <img src="https://raw.githubusercontent.com/RandomCatUser/SweetVibe/main/ico.ico" alt="" class="toast-icon" />
-  <div class="toast-content">
-    <span class="toast-title">Download started</span>
-    <span class="toast-desc">Grabbing the latest Windows installer.</span>
-  </div>
-  <button class="toast-close" type="button" aria-label="Dismiss">&times;</button>
+  <img src="https://raw.githubusercontent.com/RandomCatUser/SweetVibe/main/ico.ico" alt="" />
+  <div><b>Download started</b><span>Fetching the latest Windows installer.</span></div>
+  <button type="button" aria-label="Dismiss">&times;</button>
 </div>
 
 <script src="./girl-frames.js"></script>
