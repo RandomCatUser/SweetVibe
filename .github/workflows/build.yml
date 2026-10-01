@@ -80,7 +80,12 @@ jobs:
         run: python -m PyInstaller main.spec --noconfirm --clean
 
       - name: Build the installer (Inno Setup)
-        run: $env:ISCC_PATH setup.iss
+        shell: pwsh
+        # The call operator is required: PowerShell will not run a command
+        # stored in a variable without it.
+        run: |
+          & $env:ISCC_PATH "setup.iss"
+          if ($LASTEXITCODE -ne 0) { throw "ISCC.exe failed with $LASTEXITCODE" }
 
       - name: Verify no third-party executable was bundled
         # The whole point of the yt-dlp-as-a-library change: the release must
