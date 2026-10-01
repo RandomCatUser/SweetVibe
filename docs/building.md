@@ -69,7 +69,7 @@ Both scripts:
 - The `songs` folder and the `plugins` folder.
 - The icon (`ico.ico`).
 - Windows **version info** from `version_info.txt` (product name, company,
-  description, version `1.4.2`).
+  description, version `1.5.0`).
 
 ### yt-dlp is bundled as a library, not an executable
 
