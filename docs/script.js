@@ -1,15 +1,8 @@
-// SweetVibe docs site — shared by index.html and docs.html
-
 (function () {
   'use strict';
 
-  /* ── Download button ──────────────────────────────────────────────────
-     One button on the page. Resolve the newest installer once so the link
-     never points at a stale version, and fall back to the releases page. */
   var ASSET = 'Setup_Windows_x64.exe';
   var API = 'https://api.github.com/repos/RandomCatUser/SweetVibe/releases/latest';
-  var RELEASES = 'https://github.com/RandomCatUser/SweetVibe/releases/latest';
-
   var toast = document.getElementById('download-toast');
   var toastTimer;
 
@@ -37,8 +30,6 @@
       link.addEventListener('click', showToast);
     });
 
-    // Resolve the real asset URL in the background; the href already points
-    // somewhere sensible, so a failed lookup is harmless.
     fetch(API, { headers: { Accept: 'application/vnd.github+json' } })
       .then(function (res) {
         if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -51,115 +42,136 @@
         if (!asset || !asset.browser_download_url) return;
         links.forEach(function (link) { link.href = asset.browser_download_url; });
       })
-      .catch(function () { /* keep the releases-page fallback */ });
+      .catch(function () {});
   }
 
-  /* ── Dancing girl ASCII ───────────────────────────────────────────────
-     Frames are extracted verbatim from plugins/girl.py (see girl-frames.js).
-     ~10fps matches the plugin's own default interval. */
-  function initGirl() {
-    var art = document.getElementById('girl-art');
-    if (!art) return;
+  var scrollHandlers = [];
+  var scrollQueued = false;
 
-    var frames = window.SWEETVIBE_GIRL_FRAMES;
-    if (!frames || !frames.length) return;
+  function onScroll(fn) { scrollHandlers.push(fn); }
 
-    var label = document.getElementById('girl-state');
-    var i = 0;
-    var timer = null;
+  window.addEventListener('scroll', function () {
+    if (scrollQueued) return;
+    scrollQueued = true;
+    window.requestAnimationFrame(function () {
+      for (var i = 0; i < scrollHandlers.length; i++) scrollHandlers[i](110);
+      scrollQueued = false;
+    });
+  }, { passive: true });
 
-    function draw() { art.textContent = frames[i].join('\n'); }
-    function step() {
-      i = (i + 1) % frames.length;
-      draw();
-    }
-    function play() {
-      if (timer) return;
-      timer = setInterval(step, 100);
-      if (label) label.textContent = 'click to pause';
-    }
-    function pause() {
-      clearInterval(timer);
-      timer = null;
-      if (label) label.textContent = 'paused — click to resume';
-    }
-
-    draw();
-
-    // Respect the OS setting: show one still frame and leave it there.
-    var reduced = window.matchMedia &&
-                  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-    if (reduced) {
-      if (label) label.textContent = 'motion reduced';
-    } else {
-      play();
-      art.addEventListener('click', function () {
-        if (timer) { pause(); } else { play(); }
-      });
-    }
-  }
-
-  /* ── Docs sidebar ─────────────────────────────────────────────────────
-     Highlights the entry for whichever section is currently in view. */
-  function initSidebar() {
+  function initDocs() {
     var nav = document.getElementById('side-nav');
-    if (!nav) return;
+    var toc = document.getElementById('page-toc');
+    var inner = document.querySelector('.doc-inner');
+    if (!inner) return;
 
-    var links = Array.prototype.slice.call(nav.querySelectorAll('.side-link'));
-    if (!links.length) return;
+    if (toc) {
+      var heads = inner.querySelectorAll('h2, h3');
+      var tocItems = [];
+      var group = null;
 
-    // Map each link to the heading it points at.
-    var items = links.map(function (link) {
-      var target = document.getElementById((link.getAttribute('href') || '').slice(1));
-      return { link: link, target: target };
-    }).filter(function (i) { return i.target; });
-
-    if (!items.length) return;
-
-    function mark(id) {
-      items.forEach(function (i) {
-        if (i.target.id === id) {
-          i.link.setAttribute('aria-current', 'true');
-        } else {
-          i.link.removeAttribute('aria-current');
+      for (var i = 0; i < heads.length; i++) {
+        var h = heads[i];
+        if (h.tagName === 'H2' || !group) {
+          group = document.createElement('div');
+          group.className = 'toc-group';
+          toc.appendChild(group);
         }
-      });
-    }
-
-    function onScroll() {
-      // The section whose top is closest to (but not far below) the nav bar.
-      var line = 96;
-      var current = items[0].target.id;
-      items.forEach(function (i) {
-        if (i.target.getBoundingClientRect().top <= line) current = i.target.id;
-      });
-      // At the very bottom of the page, favour the last section.
-      if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 4) {
-        current = items[items.length - 1].target.id;
+        var host = h.parentNode && h.parentNode.id ? h.parentNode : h;
+        if (!host.id) host.id = 'sec-' + (i + 1);
+        var a = document.createElement('a');
+        a.href = '#' + host.id;
+        a.textContent = h.textContent;
+        if (h.tagName === 'H3') a.className = 'sub';
+        group.appendChild(a);
+        tocItems.push({ link: a, target: host });
       }
-      mark(current);
+
+      if (tocItems.length) {
+        tocItems[0].link.setAttribute('aria-current', 'true');
+        onScroll(function (line) {
+          var current = tocItems[0].target.id;
+          tocItems.forEach(function (it) {
+            if (it.target.getBoundingClientRect().top <= line) current = it.target.id;
+          });
+          tocItems.forEach(function (it) {
+            if (it.target.id === current) it.link.setAttribute('aria-current', 'true');
+            else it.link.removeAttribute('aria-current');
+          });
+        });
+      }
     }
 
-    var ticking = false;
-    function request() {
-      if (ticking) return;
-      ticking = true;
-      window.requestAnimationFrame(function () {
-        onScroll();
-        ticking = false;
-      });
+    if (nav) {
+      var items = Array.prototype.slice.call(nav.querySelectorAll('a'))
+        .map(function (link) {
+          return {
+            link: link,
+            target: document.getElementById((link.getAttribute('href') || '').slice(1))
+          };
+        })
+        .filter(function (x) { return x.target; });
+
+      if (items.length) {
+        items[0].link.setAttribute('aria-current', 'true');
+        onScroll(function (line) {
+          var current = items[0].target.id;
+          items.forEach(function (it) {
+            if (it.target.getBoundingClientRect().top <= line) current = it.target.id;
+          });
+          if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 4) {
+            current = items[items.length - 1].target.id;
+          }
+          items.forEach(function (it) {
+            if (it.target.id === current) it.link.setAttribute('aria-current', 'true');
+            else it.link.removeAttribute('aria-current');
+          });
+        });
+      }
+    }
+  }
+
+  function initNav() {
+    var btn = document.getElementById('nav-toggle');
+    var nav = document.getElementById('side-nav');
+    var scrim = document.getElementById('nav-scrim');
+    if (!btn || !nav) return;
+
+    function set(open) {
+      nav.classList.toggle('open', open);
+      document.body.classList.toggle('nav-open', open);
+      if (scrim) {
+        scrim.classList.toggle('show', open);
+        if (open) scrim.removeAttribute('hidden');
+        else scrim.setAttribute('hidden', '');
+      }
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      btn.setAttribute('aria-label', open ? 'Close documentation menu' : 'Open documentation menu');
     }
 
-    window.addEventListener('scroll', request, { passive: true });
-    window.addEventListener('resize', request);
-    onScroll();
+    btn.addEventListener('click', function () {
+      set(!nav.classList.contains('open'));
+    });
+
+    if (scrim) scrim.addEventListener('click', function () { set(false); });
+
+    nav.addEventListener('click', function (e) {
+      if (e.target.closest('a')) set(false);
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') set(false);
+    });
+
+    window.addEventListener('resize', function () {
+      if (window.innerWidth > 860) set(false);
+    });
   }
 
   function init() {
     initDownload();
-    initGirl();
-    initSidebar();
+    initNav();
+    initDocs();
   }
 
   if (document.readyState === 'loading') {
