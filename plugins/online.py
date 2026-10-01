@@ -1,6 +1,26 @@
 """
-PLUGIN :: ONLINE DISCOVERY v6
+PLUGIN :: ONLINE DISCOVERY v7
 =============================
+NEW in v7 -- NO BUNDLED yt-dlp.exe (yt-dlp runs as a Python library)
+- v6 shipped a standalone yt-dlp.exe next to the player and shelled out to it,
+  scraping "[download] 62% of 4.98MiB" out of stdout for the progress bar.
+  A large self-contained .exe shipped inside an installer is exactly what
+  antivirus/PUA heuristics flag, so the release looked suspicious.
+- v7 imports yt_dlp in-process instead.  Nothing extra is shipped, no console
+  window flashes up, there is no PATH lookup to get wrong and no subprocess to
+  supervise.
+- Progress now arrives through progress_hooks (downloaded_bytes / total_bytes /
+  speed / eta) and the download path comes from YoutubeDL.prepare_filename(),
+  which is exact, so the old "newest file matching the title" glob is only a
+  fallback.
+- ALL yt-dlp output is captured by _QuietLog.  A TUI must never let a library
+  write to the console, or the asciimatics screen is corrupted.
+- The stall watchdog cannot kill an in-process download, so it now trips a flag
+  that the progress hook honours by raising _Aborted, unwinding the download.
+- Requires pip install yt-dlp (still optional); the rest of the plugin loads
+  and the player starts normally when it is missing.
+
+v6 notes kept below.
 NEW in v6 -- PLAYABILITY FIX (no ffmpeg, no extra binaries)
 - The audio engine (just_playback/miniaudio) only decodes mp3 / wav / flac /
   ogg-vorbis / ogg-opus.  YouTube streams are WebM+Opus or M4A+AAC, so a raw
@@ -8,6 +28,8 @@ NEW in v6 -- PLAYABILITY FIX (no ffmpeg, no extra binaries)
 - v6 remuxes WebM/Matroska (Opus) -> Ogg Opus in PURE PYTHON: the EBML
   container is read, the Opus packets are repacked into Ogg pages with correct
   granule positions.  Nothing is re-encoded, so it needs no converter at all.
+- The source container is deleted again as soon as the .opus twin is verified,
+  so one download is one file (no more "track.webm" + "track.opus" pairs).
 - Downloads now prefer a stream we can decode (Opus first), every cached /
   queued / browsed file is checked for playability, and unplayable WebM files
   (old downloads included) are repaired automatically on play.
@@ -34,10 +56,8 @@ import zlib
 import mmap
 import struct
 import random
-import shutil
 import hashlib
 import platform
-import sys
 import threading
 import subprocess
 import unicodedata
@@ -50,9 +70,6 @@ except Exception:
     _translit = None
 
 _player        = None
-APP_DIR        = (Path(sys.executable).resolve().parent
-                  if getattr(sys, "frozen", False)
-                  else Path(__file__).resolve().parents[1])
 LEGACY_CACHE   = Path.home() / ".sweetvibe_cache" / "online"
 INDEX_FILE     = Path.home() / ".sweetvibe_cache" / "index.json"
 CONFIG_FILE    = Path.home() / ".sweetvibe_plugin_config.json"
@@ -64,38 +81,79 @@ AUDIO_EXTS    = ["mp3", "m4a", "webm", "opus", "ogg", "wav", "flac"]
 # and nothing else (.webm and .m4a blow up with "MA_ERROR" at load time)
 PLAYABLE_EXTS = ("mp3", "ogg", "opus", "wav", "flac")
 REMUX_EXTS    = ("webm", "mkv")   # containers holding Opus we can repack
-PROGRESS_RE   = re.compile(r"\[download\]\s+([\d.]+)%")
 YT_ID_RE      = re.compile(r"(?:v=|youtu\.be/|shorts/)([\w\-]{11})")
 STALL_SECONDS = 90
-NET_ARGS = ["--newline", "--no-warnings", "--no-playlist",
-            "--socket-timeout", "25", "--retries", "6",
-            "--fragment-retries", "10", "--concurrent-fragments", "4"]
-_wf = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000) if os.name == "nt" else 0
+
+# yt-dlp runs as an ordinary in-process Python library: no yt-dlp.exe is
+# shipped, no console window is opened and no stdout is scraped. Progress
+# arrives through progress_hooks and diagnostics through the logger below.
+NET_OPTS = {
+    "quiet": True, "no_warnings": True, "noprogress": True,
+    "noplaylist": True, "overwrites": True,
+    "socket_timeout": 25, "retries": 6,
+    "fragment_retries": 10, "concurrent_fragment_downloads": 4,
+}
 
 
-def _yt_dlp_command():
-    """Find yt-dlp installed by the guided installer or available on PATH."""
-    bundled = APP_DIR / "yt-dlp.exe"
-    if bundled.is_file():
-        return [str(bundled)]
-    found = shutil.which("yt-dlp")
-    if found:
-        return [found]
-    candidates = [
-        Path(sys.executable).parent / "Scripts" / "yt-dlp.exe",
-    ]
-    for root in (
-        Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "Python",
-        Path(os.environ.get("APPDATA", "")) / "Python",
-    ):
-        try:
-            candidates.extend(root.glob("Python*/Scripts/yt-dlp.exe"))
-        except OSError:
-            pass
-    for candidate in candidates:
-        if candidate.is_file():
-            return [str(candidate)]
-    return None
+def _ytdlp():
+    """The yt_dlp module, or None when it is not installed.
+
+    Imported lazily so the rest of the plugin still loads (and the player
+    still starts) on a machine that never installed the online extras."""
+    try:
+        import yt_dlp
+        return yt_dlp
+    except Exception:
+        return None
+
+
+class _QuietLog:
+    """Captures yt-dlp diagnostics instead of letting them reach the console.
+
+    Essential for a TUI: without this, yt-dlp writes to stdout/stderr and
+    corrupts the asciimatics screen."""
+
+    def __init__(self):
+        self.lines = []
+
+    def debug(self, msg):  pass    # yt-dlp is very chatty at debug level
+    def info(self, msg):   pass    # progress is delivered via progress_hooks
+
+    def warning(self, msg):
+        if msg:
+            self.lines.append(str(msg))
+
+    def error(self, msg):
+        if msg:
+            self.lines.append(str(msg))
+
+
+class _Aborted(Exception):
+    """Raised inside a progress hook to cancel a stalled download."""
+
+
+def _fmt_bytes(n):
+    try:
+        n = float(n)
+    except (TypeError, ValueError):
+        return ""
+    for unit in ("B", "KiB", "MiB", "GiB"):
+        if n < 1024 or unit == "GiB":
+            return ("%d%s" % (n, unit)) if unit == "B" else ("%.2f%s" % (n, unit))
+        n /= 1024
+    return ""
+
+
+def _fmt_eta(seconds):
+    try:
+        s = int(seconds)
+    except (TypeError, ValueError):
+        return ""
+    if s <= 0:
+        return "00:00"
+    h, rem = divmod(s, 3600)
+    return "%d:%02d:%02d" % (h, rem // 60, rem % 60) if h \
+        else "%02d:%02d" % (rem // 60, rem % 60)
 
 
 class Engine:
@@ -121,7 +179,7 @@ def setup(player):
     _player = player
     try: LEGACY_CACHE.mkdir(parents=True, exist_ok=True)
     except Exception: pass
-    player.add_log("Online plugin v6 loaded (:yt | :pl | :cache)"
+    player.add_log("Online plugin v7 loaded (:yt | :pl | :cache)"
                    + (" [unidecode]" if _translit else " [ascii-mode]"))
     player.plugin_hooks["on_command"].append(handle_command)
     player.plugin_hooks["on_play_request"].append(handle_play_request)
@@ -436,7 +494,7 @@ def safe_filename(name, fallback="track"):
 
 def find_downloaded(base):
     """Newest file yt-dlp produced for this title, preferring a decodable one
-    that belongs to that same download (the WebM source is kept alongside)."""
+    that belongs to that same download (a half-repaired title can have both)."""
     cands = []
     try:
         for f in Path(base).parent.glob(Path(base).name + ".*"):
@@ -448,8 +506,8 @@ def find_downloaded(base):
     def _mt(f):
         try: return f.stat().st_mtime
         except OSError: return 0.0
-    # newest file wins (that is what yt-dlp just wrote); a decodable copy is
-    # only used when it is just as new, so a stale .opus can never mask a
+    # newest file wins (that is what the download just wrote); a decodable copy
+    # is only used when it is just as new, so a stale .opus can never mask a
     # re-downloaded .webm - that one must go through remux again.
     best = max(cands, key=_mt)
     if playable(best):
@@ -822,6 +880,37 @@ def ensure_playable(path):
     return None
 
 
+def _prune_container(src, dst):
+    """Drop the raw WebM/MKV once its remuxed twin is verified on disk.
+    Without this every single download left TWO files in the target folder
+    (the .webm the download wrote plus the .opus we remuxed out of it).
+    Guarded hard: the .opus must be playable AND at least as new as the
+    source, so a pre-existing stale .opus can never make us throw away the
+    copy that actually holds the audio."""
+    try:
+        src, dst = Path(src), Path(dst)
+        if src.suffix.lower() not in [".%s" % e for e in REMUX_EXTS]:
+            return False
+        if src.resolve() == dst.resolve():
+            return False
+        if not playable(dst):
+            return False
+        try:
+            if dst.stat().st_mtime + 0.05 < src.stat().st_mtime:
+                return False                     # dst is stale, not ours
+        except OSError:
+            return False
+        src.unlink()
+    except Exception:
+        return False
+    try:
+        _player.add_log("Removed source .%s (kept .%s)"
+                        % (_suffix(src) or "?", _suffix(dst) or "?"))
+    except Exception:
+        pass
+    return True
+
+
 # ==========================================================================
 # Commands
 # ==========================================================================
@@ -851,59 +940,55 @@ def start_search(query):
                      daemon=True).start()
 
 def search_worker(query, seq):
+    ytdlp = _ytdlp()
+    if ytdlp is None:
+        _player.add_log("yt-dlp module missing. pip install yt-dlp")
+        return
+    log = _QuietLog()
+    opts = dict(NET_OPTS, logger=log, skip_download=True,
+                extract_flat="in_playlist", ignoreerrors=True)
     try:
-        yt_dlp = _yt_dlp_command()
-        if not yt_dlp:
-            _player.add_log("yt-dlp is not installed. Run the setup wizard.")
-            return
-        cmd = yt_dlp + ["ytsearch12:" + query, "--dump-json",
-               "--flat-playlist", "--skip-download", "--no-warnings",
-               "--ignore-errors"]
-        try:
-            res = subprocess.run(cmd, capture_output=True, text=True,
-                                 encoding="utf-8", errors="replace",
-                                 creationflags=_wf, timeout=60)
-        except FileNotFoundError:
-            _player.add_log("yt-dlp missing!  pip install -U yt-dlp"); return
-        except subprocess.TimeoutExpired:
-            _player.add_log("Search timed out."); return
-        tracks = []
-        for line in (res.stdout or "").splitlines():
-            line = line.strip()
-            if not line: continue
-            try:
-                d = json.loads(line)
-                title = d.get("title") or ""
-                who   = d.get("uploader") or d.get("channel") or ""
-                dur   = d.get("duration") or 0
-                url   = d.get("webpage_url") or d.get("original_url")
-                if not url and d.get("id"):
-                    url = "https://www.youtube.com/watch?v=" + d["id"]
-                if not url: continue
-                # ---- SANITIZE: English-only, emoji-free ----
-                t_en = english(title, "")
-                a_en = english(who, "")
-                if not t_en:
-                    t_en = "(untitled) " + _video_id(url)[:6]
-                label = "[Y] " + t_en + (" - " + a_en if a_en else "")
-                tracks.append(("online", label, url, dur))
-            except Exception: pass
-        if seq != ENG.search_seq: return          # stale; newer search ran
-        sc_state["results"] = tracks
-        if tracks:
-            _player.add_log("Found %d tracks." % len(tracks))
-        else:
-            details = (res.stderr or res.stdout or "").strip().splitlines()
-            _player.add_log("No tracks found.")
-            for line in details[-2:]:
-                if line.strip():
-                    _player.add_log("   | " + english(line.strip(), "?")[:46])
+        with ytdlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info("ytsearch12:" + query, download=False)
     except Exception as e:
         if seq == ENG.search_seq:
             _player.add_log("Search Error: " + english(str(e), "?")[:24])
-    finally:
-        if seq == ENG.search_seq:
             sc_state["is_loading"] = False
+        return
+
+    tracks = []
+    for d in (info or {}).get("entries") or []:
+        try:
+            if not d:
+                continue
+            title = d.get("title") or ""
+            who   = d.get("uploader") or d.get("channel") or ""
+            dur   = d.get("duration") or 0
+            url   = d.get("webpage_url") or d.get("original_url")
+            if not url and d.get("id"):
+                url = "https://www.youtube.com/watch?v=" + d["id"]
+            if not url:
+                continue
+            # ---- SANITIZE: English-only, emoji-free ----
+            t_en = english(title, "")
+            a_en = english(who, "")
+            if not t_en:
+                t_en = "(untitled) " + _video_id(url)[:6]
+            label = "[Y] " + t_en + (" - " + a_en if a_en else "")
+            tracks.append(("online", label, url, dur))
+        except Exception:
+            pass
+
+    if seq != ENG.search_seq: return              # stale; newer search ran
+    sc_state["results"] = tracks
+    sc_state["is_loading"] = False
+    if tracks:
+        _player.add_log("Found %d tracks." % len(tracks))
+    else:
+        _player.add_log("No tracks found.")
+        for line in (log.lines or ["nothing matched"])[-2:]:
+            if str(line).strip():
+                _player.add_log("   | " + english(str(line).strip(), "?")[:46])
 
 def on_tick():
     if sc_state["show_modal"]:
@@ -1002,7 +1087,9 @@ def _resolve_worker(item):
         if hit:
             good = ensure_playable(hit)
             if good:
-                if good != hit: _index_set(url, good)
+                if good != hit:
+                    _index_set(url, good)
+                    _prune_container(hit, good)    # legacy download leftovers
                 _player.add_log("CACHED - instant play.")
                 ENG.set_banner(">> Instant: " + _short(item[1]))
                 _finalize(item, good); return
@@ -1032,6 +1119,7 @@ def _resolve_worker(item):
                 _player.add_log("Tip: pick another result.")
                 ENG.set_banner("X Unplayable: " + _short(item[1], 24), "red")
                 return
+            _prune_container(path, good)          # one download = one file
             path = good
             _index_set(url, path)
             st.update(status="done", pct=100, file=path)
@@ -1073,75 +1161,98 @@ def _wait_then_finish(item):
 def _run_download(url, base, st):
     """Grab only a stream we can decode (Opus first) - no external converter.
     The WebM source is repacked to Ogg Opus by ensure_playable() afterwards."""
+    ytdlp = _ytdlp()
+    if ytdlp is None:
+        return False, None, ["yt-dlp module missing. pip install yt-dlp"]
+
     outtmpl = str(base) + ".%(ext)s"
-    fmt_chain = [["-f", "bestaudio[acodec=opus]/bestaudio[ext=webm]/"
+    fmt_chain = ["bestaudio[acodec=opus]/bestaudio[ext=webm]/"
                         "bestaudio[acodec=mp3]/bestaudio[ext=mp3]/"
-                        "bestaudio/bestaudio*/best"]]
+                        "bestaudio/bestaudio*/best"]
 
-    err_tail = []
-    yt_dlp = _yt_dlp_command()
-    if not yt_dlp:
-        return False, None, ["yt-dlp is not installed. Run the setup wizard."]
     for afmt in fmt_chain:
-        cmd = yt_dlp + NET_ARGS + afmt + \
-              ["--force-overwrites", "-o", outtmpl, "--", url]
-        ps = {"last_seen": time.time(), "killed": False}
-        try:
-            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
-                                    stderr=subprocess.STDOUT, text=True,
-                                    encoding="utf-8", errors="replace",
-                                    bufsize=1, creationflags=_wf)
-        except FileNotFoundError:
-            return False, None, ["yt-dlp could not be started. Run the setup wizard."]
+        log = _QuietLog()
+        ps = {"last_seen": time.time(), "killed": False, "path": None}
 
-        def _watchdog(proc=proc, ps=ps):
+        def _hook(d, ps=ps, st=st):
+            if ps["killed"]:
+                raise _Aborted()
+            status = d.get("status")
+            if status == "downloading":
+                ps["last_seen"] = time.time()
+                done  = d.get("downloaded_bytes") or 0
+                total = d.get("total_bytes") or d.get("total_bytes_estimate")
+                if total:
+                    st["pct"] = min(int(done * 100 / total), 99)
+                    st["size"] = _fmt_bytes(total)
+                if d.get("speed"):
+                    st["speed"] = _fmt_bytes(d["speed"]) + "/s"
+                if d.get("eta") is not None:
+                    st["eta"] = _fmt_eta(d["eta"])
+                st["phase"] = "downloading"
+            elif status == "finished":
+                ps["last_seen"] = time.time()
+                st["pct"] = min(st.get("pct", 0), 99)
+                st["phase"] = "downloading"
+
+        def _watchdog(ps=ps):
+            """Cannot kill an in-process download, so it trips a flag the
+            progress hook honours (raising _Aborted unwinds the download)."""
             while True:
                 time.sleep(5)
-                if proc.poll() is not None: return
+                if ps["last_seen"] is None:
+                    return
                 if time.time() - ps["last_seen"] > STALL_SECONDS:
                     ps["killed"] = True
-                    try: proc.kill()
-                    except Exception: pass
                     return
 
+        opts = dict(NET_OPTS, format=afmt, outtmpl=outtmpl,
+                    logger=log, progress_hooks=[_hook])
         wd = threading.Thread(target=_watchdog, daemon=True); wd.start()
-        for raw in proc.stdout:
-            line = raw.rstrip()
-            if not line: continue
-            m = PROGRESS_RE.search(line)
-            if m:
-                ps["last_seen"] = time.time()
-                st["pct"] = min(int(float(m.group(1))), 99)
-                st["phase"] = "downloading"
-                for pat, key in ((r"of\s+~?\s*([\d.]+\w+)", "size"),
-                                 (r"at\s+([\d.]+\w+/s)", "speed"),
-                                 (r"ETA\s+([\d:]+)", "eta")):
-                    mm = re.search(pat, line)
-                    if mm: st[key] = mm.group(1)
-            elif "already been downloaded" in line:
-                ps["last_seen"] = time.time(); st["pct"] = 99
-            elif "[ExtractAudio]" in line or "Destination:" in line:
-                ps["last_seen"] = time.time(); st["phase"] = "converting"
-            elif "ERROR" in line.upper():
-                err_tail.append(line.strip())
-        rc = proc.wait(); wd.join(timeout=2)
+        try:
+            with ytdlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                # exact path the library will write, then the tolerant glob
+                try:
+                    ps["path"] = Path(ydl.prepare_filename(info))
+                except Exception:
+                    ps["path"] = None
+            ps["last_seen"] = None                       # release the watchdog
+        except _Aborted:
+            ps["last_seen"] = None
+            return False, None, ["(aborted: stalled %ds)" % STALL_SECONDS]
+        except Exception as e:
+            ps["last_seen"] = None
+            # yt-dlp reports the same failure through BOTH the raised
+            # exception and the logger, so de-duplicate before logging.
+            err = []
+            for line in [str(e)] + list(log.lines):
+                line = str(line).strip()
+                if line and line not in err:
+                    err.append(line)
+            joined = " ".join(err).lower()
+            if any(t in joined for t in ("403", "forbidden", "unavailable")):
+                err.append("This video was blocked by YouTube.")
+            return False, None, (err[-8:] or ["Unknown error"])
+        finally:
+            ps["last_seen"] = None
+            wd.join(timeout=2)
 
-        path = find_downloaded(base)
-        if rc == 0 and path:
+        path = None
+        try:
+            cand = ps["path"]
+            if cand is not None and _valid_audio(cand):
+                path = cand
+            else:
+                path = find_downloaded(base)          # fallback scan
+        except Exception:
+            path = None
+        if path:
             return True, path, []
-        if ps["killed"]:
-            err_tail.append("(aborted: stalled %ds)" % STALL_SECONDS); break
-        joined = " ".join(err_tail).lower()
-        recoverable = any(t in joined for t in (
-            "403", "forbidden", "unavailable", "postprocessor", "ffmpeg",
-            "requested format", "conversion failed"))
-        if recoverable and len(fmt_chain) > 1 and afmt is fmt_chain[0]:
-            _player.add_log("Retrying without conversion...")
-            err_tail = []
-            continue
-        break
+        return False, None, ([l for l in log.lines if str(l).strip()][-8:]
+                             or ["yt-dlp finished but no audio file was written"])
 
-    return False, None, (err_tail[-8:] or ["Unknown error"])
+    return False, None, ["Unknown error"]
 
 def _save_download_error(url, errors):
     try:
@@ -1202,9 +1313,13 @@ def _deserialize(entry):
             return ("file", entry["n"], p, entry.get("d", 0)), False
         hit = None
         try:
+            sibs = [p] if _suffix(p) not in REMUX_EXTS else \
+                   [p.with_suffix(".opus")]        # source already pruned
             for d in {get_download_dir(), p.parent}:
-                for f in d.glob(p.name):
-                    if _valid_audio(f): hit = f; break
+                for base in sibs:
+                    for f in d.glob(base.name):
+                        if _valid_audio(f): hit = f; break
+                    if hit: break
                 if hit: break
         except Exception: pass
         return (("file", entry["n"], hit, entry.get("d", 0)), hit is None)

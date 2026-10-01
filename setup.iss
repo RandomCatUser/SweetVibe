@@ -74,7 +74,7 @@ Name: "cleansetup"; Description: "&Clean installation (removes old program files
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; Flags: unchecked
 
 [Files]
-Source: "{#MyBuildDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "setup_online.ps1"
+Source: "{#MyBuildDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#AppIcon}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#UninstallIcon}"; DestDir: "{app}"; Flags: ignoreversion
 

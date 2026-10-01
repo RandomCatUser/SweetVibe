@@ -30,9 +30,8 @@ README.md            Project readme.
 LICENSE              Apache 2.0 license.
 songs/               Bundled local music folder.
 plugins/             Loaded automatically at startup (see plugins.md).
-  online.py              YouTube search/download plugin.
-  setup_yt_dlp.py        yt-dlp setup helper.
-  setup_online.ps1       Online feature setup script (used by installer).
+  online.py              YouTube search/download plugin. Uses yt-dlp as an
+                         imported Python library (no bundled yt-dlp.exe).
 docs/                This documentation set.
 dist/                Build output (executable + installer).
 build/               PyInstaller intermediate build files.

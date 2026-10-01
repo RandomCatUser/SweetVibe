@@ -13,13 +13,13 @@ EXE.
   (`asciimatics`, `tinytag`, `just_playback`; optionally `numpy` + `soundfile`).
 - **PyInstaller** available on your PATH as `pyinstaller`.
 - **Inno Setup 6** installed so `ISCC.exe` is available.
-- **yt-dlp** on your PATH or installed via pip (the build bundles it).
+- **yt-dlp** installed via pip (the build collects the Python package).
 
 Install the Python build tooling:
 
 ```bash
 python -m pip install asciimatics tinytag just_playback numpy soundfile pyinstaller
-python -m pip install --user --upgrade yt-dlp
+python -m pip install --upgrade yt-dlp
 ```
 
 ---
@@ -64,14 +64,30 @@ Both scripts:
 `main.spec` tells PyInstaller what to bundle:
 
 - The entry script (`main.py`).
-- Python packages collected recursively for `asciimatics`, `tinytag`, and
-  `just_playback`.
-- The bundled `yt-dlp.exe`, the `songs` folder, and the `plugins` folder.
+- Python packages collected recursively for `asciimatics`, `tinytag`,
+  `just_playback`, and `yt_dlp`.
+- The `songs` folder and the `plugins` folder.
 - The icon (`ico.ico`).
 - Windows **version info** from `version_info.txt` (product name, company,
   description, version `1.4.2`).
 
-If `yt-dlp` is missing at build time, the spec aborts with a clear message.
+### yt-dlp is bundled as a library, not an executable
+
+The spec collects the `yt_dlp` Python package with `collect_all()` instead of
+copying a standalone `yt-dlp.exe` next to the player. Consequences worth
+knowing:
+
+- **No `yt-dlp.exe` in the release.** There is no self-contained binary for
+  antivirus/PUA heuristics to flag, which was the reason for this change.
+- **No PATH lookup at runtime.** `plugins/online.py` does `import yt_dlp`, so
+  there is no installed-vs-bundled resolution to get wrong.
+- **No subprocess and no scraped output.** The plugin gets progress from
+  `progress_hooks` and the written path from `YoutubeDL.prepare_filename()`.
+- **yt-dlp keeps working normally.** It still needs its usual CA certificates
+  and a JS runtime for full YouTube support, exactly as before.
+
+If `yt_dlp` cannot be imported at build time, the spec aborts with a clear
+message.
 
 ---
 

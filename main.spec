@@ -1,6 +1,4 @@
 # -*- mode: python ; coding: utf-8 -*-
-import shutil
-
 from PyInstaller.utils.hooks import collect_all
 
 datas = []
@@ -11,10 +9,20 @@ for package in ('asciimatics', 'tinytag', 'just_playback'):
     datas += package_datas
     binaries += package_binaries
     hiddenimports += package_hiddenimports
-yt_dlp_exe = shutil.which('yt-dlp')
-if not yt_dlp_exe:
-    raise SystemExit('yt-dlp.exe is required to build SweetVibe. Install it with: python -m pip install --upgrade yt-dlp')
-binaries.append((yt_dlp_exe, '.'))
+
+# yt-dlp is used as a plain Python library by plugins/online.py, so it is
+# collected like any other import. This is what keeps a standalone yt-dlp.exe
+# out of the release: there is no binary to find, copy or bundle.
+try:
+    import yt_dlp  # noqa: F401
+except ImportError:
+    raise SystemExit(
+        'yt-dlp is required to build SweetVibe. Install it with: '
+        'python -m pip install --upgrade yt-dlp')
+package_datas, package_binaries, package_hiddenimports = collect_all('yt_dlp')
+datas += package_datas
+binaries += package_binaries
+hiddenimports += package_hiddenimports
 datas.append(('songs', 'songs'))
 datas.append(('plugins', 'plugins'))
 
