@@ -2,7 +2,7 @@
 
 SweetVibe is a terminal music player for Windows and Python. It provides local
 music browsing, PC-wide scanning, playlists, audio visualization, customizable
-keybindings, automatic updates, and optional YouTube discovery with yt-dlp.
+keybindings, automatic updates, and optional YouTube discovery.
 
 ## Trailer
 
@@ -49,11 +49,15 @@ python -m pip install asciimatics tinytag just_playback numpy soundfile
 ```
 
 `numpy` and `soundfile` enable the real audio-reactive spectrum and are
-optional. To enable YouTube features when running from source, install yt-dlp:
+optional. To enable YouTube features when running from source, install yt-dlp
+from pip:
 
 ```bash
-python -m pip install --user --upgrade yt-dlp
+python -m pip install -U yt-dlp
 ```
+
+It is imported as a normal Python library - no separate `yt-dlp.exe` is
+downloaded or executed.
 
 Start the player from the project folder:
 
@@ -72,7 +76,7 @@ Requirements:
 - Python with the project dependencies installed.
 - PyInstaller available as `pyinstaller`.
 - Inno Setup 6 installed as `ISCC.exe`.
-- yt-dlp on your PATH (it is bundled).
+- yt-dlp installed via pip (the build bundles the Python package).
 
 Run either build script from the project folder:
 
@@ -146,8 +150,8 @@ Commands provided by the online plugin (`plugins/online.py`):
 | `:cache clear` | Remove legacy temporary cache files |
 
 YouTube downloads use the current Browse folder when possible. A download can
-be pinned with `:cache dir <path>`. If yt-dlp is unavailable, the player logs a
-setup message instead of crashing.
+be pinned with `:cache dir <path>`. If the `yt_dlp` package is not installed,
+the player logs a setup message instead of crashing.
 
 Commands provided by the lyrics plugin (`plugins/lyrics.py`):
 
@@ -179,11 +183,12 @@ Read the complete API guide in [docs/plugins.md](docs/plugins.md).
 
 ## Contributors
 
-Thanks to the AI assistants that helped build SweetVibe alongside its author:
+Thanks to the AI assistants and bots that helped build SweetVibe alongside its author:
 
-- **Claude** (Anthropic) — documentation, the Lyrics plugin, and the online
-  playback work.
+- **Claude** (Anthropic) — documentation, the Lyrics plugin, the online playback work,
+  the docs site redesign, and the yt-dlp packaging rework.
 - **Charm Crush** — an AI coding tool that contributed to the project.
+- **CodeRabbit** — the automated code-review bot that reviews pull requests here.
 
 Contributions are welcome: open an issue or a pull request.
 
