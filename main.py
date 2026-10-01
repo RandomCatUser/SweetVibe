@@ -38,6 +38,15 @@ AUDIO_EXTS = {'.mp3', '.wav', '.flac', '.m4a', '.ogg', '.opus', '.aac', '.webm'}
 CURRENT_VERSION = "1.4.2"
 RELEASES_API_URL = "https://api.github.com/repos/RandomCatUser/SweetVibe/releases/latest"
 INSTALLER_ASSET_NAME = "Setup_Windows_x64.exe"
+SKIPPED_VERSION_FILE = Path.home() / ".sweetvibe_skipped_version"
+
+# Update modal stages
+UPD_IDLE = "idle"
+UPD_CHECKING = "checking"
+UPD_READY = "ready"
+UPD_DOWNLOADING = "downloading"
+UPD_DONE = "done"
+UPD_ERROR = "error"
 
 APP_DIR = Path(sys.executable).resolve().parent if getattr(sys, 'frozen', False) else Path(__file__).resolve().parent
 if getattr(sys, 'frozen', False) and not (APP_DIR / "songs").exists():
@@ -144,8 +153,50 @@ def print_goodbye():
         pass
 
 
-def check_for_updates_async(player):
-    """Background thread to check GitHub for the latest published release."""
+def version_key(version):
+    """'v1.10.2' -> (1, 10, 2) so numeric parts compare correctly (1.10 > 1.9).
+    Takes the leading digits of each dot-part, so tags like '1.5.0-beta.2'
+    still resolve to (1, 5, 0, 2) instead of silently truncating."""
+    parts = []
+    for chunk in str(version).lstrip("vV").split("."):
+        digits = ""
+        for ch in chunk:
+            if ch.isdigit():
+                digits += ch
+            else:
+                break
+        if digits:
+            parts.append(int(digits))
+    return tuple(parts)
+
+
+def local_version():
+    """The version we consider installed: the marker file written after a
+    successful update wins over the compiled-in one."""
+    try:
+        ver_file = Path.home() / ".sweetvibe_version"
+        if ver_file.exists():
+            stored = ver_file.read_text(encoding="utf-8").strip()
+            if stored:
+                return stored
+    except OSError:
+        pass
+    return CURRENT_VERSION
+
+
+def skipped_version():
+    try:
+        if SKIPPED_VERSION_FILE.exists():
+            return SKIPPED_VERSION_FILE.read_text(encoding="utf-8").strip()
+    except OSError:
+        pass
+    return ""
+
+
+def check_for_updates_async(player, announce=True):
+    """Background thread to check GitHub for the latest published release.
+    Never raises and never blocks the UI thread."""
+    player.update_stage = UPD_CHECKING
     try:
         req = urllib.request.Request(RELEASES_API_URL,
                                      headers={'User-Agent': 'SweetVibe-Player'})
@@ -155,26 +206,30 @@ def check_for_updates_async(player):
         if not latest_version:
             return
 
-        local_version = CURRENT_VERSION
-        ver_file = Path.home() / ".sweetvibe_version"
-        if ver_file.exists():
-            stored_version = ver_file.read_text(encoding="utf-8").strip()
-            if stored_version:
-                local_version = stored_version
-
-        def version_key(version):
-            return tuple(int(part) for part in version.lstrip("vV").split(".")
-                         if part.isdigit())
-
-        if version_key(latest_version) > version_key(local_version):
+        mine = local_version()
+        if version_key(latest_version) > version_key(mine):
             player.update_available = True
             player.latest_version = latest_version
             player.latest_release_url = data.get('html_url', '')
-            player.add_log(f"Update available: {latest_version}. Type :update in cmd bar.")
+            player.update_notes = (data.get('body') or '').strip()
+            # A version the user explicitly dismissed stays dismissed.
+            if latest_version == skipped_version():
+                player.update_stage = UPD_IDLE
+                return
+            # Pop the modal up by itself the first time we learn about it.
+            if announce and not player.update_notified:
+                player.update_notified = True
+                player.show_update = True
+            player.add_log(f"Update available: {latest_version} (you have {mine})")
         else:
-            player.add_log(f"SweetVibe is up to date ({local_version}).")
+            player.update_available = False
+            player.update_stage = UPD_IDLE
+            if announce:
+                player.add_log(f"SweetVibe is up to date ({mine}).")
     except Exception:
-        pass
+        player.update_stage = UPD_IDLE
+        if announce:
+            player.add_log("Update check failed (offline?)")
 
 
 class KityPlayer:
@@ -205,6 +260,19 @@ class KityPlayer:
         self.update_available = False
         self.latest_version = ""
         self.latest_release_url = ""
+        self.update_notes = ""
+
+        # In-CLI update modal state
+        self.show_update = False
+        self.update_stage = UPD_IDLE
+        self.update_selection = 0        # 0 = Install, 1 = Later, 2 = Skip
+        self.update_pct = 0
+        self.update_speed = ""
+        self.update_error = ""
+        self.update_path = None
+        self.update_notified = False     # auto-popup only fires once
+        self.update_spinner = 0
+        self.update_from_cache = False
         threading.Thread(target=check_for_updates_async, args=(self,), daemon=True).start()
 
         # Settings state - must be set before load_keybinds
@@ -622,20 +690,56 @@ class KityPlayer:
         self.scan_thread = threading.Thread(target=worker, daemon=True)
         self.scan_thread.start()
 
-    def perform_update(self):
-        self.add_log(f"Downloading {INSTALLER_ASSET_NAME}...")
+    # ----------------------------------------------------------------- update
+    def _launch_installer(self, installer_path):
+        """Hand off to the Windows installer. Returns True when launched."""
+        try:
+            if os.name != "nt":
+                self.add_log("Installer can only be launched on Windows")
+                return False
+            os.startfile(str(installer_path))
+            return True
+        except Exception as e:
+            self.add_log(f"Could not open installer: {str(e)[:24]}")
+            return False
+
+    def _installer_is_current(self, installer_path):
+        """True when the setup file is already newer than the running build,
+        so a re-open of the modal can skip straight to launching it."""
+        try:
+            if not installer_path or not Path(installer_path).is_file():
+                return False
+            build_time = Path(sys.argv[0]).stat().st_mtime \
+                if Path(sys.argv[0]).is_file() else 0
+            return Path(installer_path).stat().st_mtime >= build_time
+        except OSError:
+            return False
+
+    def start_update_download(self):
+        """Kick the download off on a worker thread so the modal keeps
+        animating (and the player keeps playing) while it runs."""
+        if self.update_stage in (UPD_DOWNLOADING, UPD_DONE):
+            return
+        self.update_stage = UPD_DOWNLOADING
+        self.update_pct = 0
+        self.update_error = ""
+        self.update_speed = ""
+        threading.Thread(target=self._update_worker, daemon=True).start()
+
+    def _update_worker(self):
         try:
             req = urllib.request.Request(RELEASES_API_URL,
                                          headers={'User-Agent': 'SweetVibe-Player'})
-            with urllib.request.urlopen(req, timeout=5) as response:
+            with urllib.request.urlopen(req, timeout=10) as response:
                 release = json.loads(response.read().decode())
 
             release_version = release.get('tag_name', '').strip()
             asset = next((item for item in release.get('assets', [])
                           if item.get('name') == INSTALLER_ASSET_NAME), None)
             if not asset or not asset.get('browser_download_url'):
-                self.add_log(f"Release has no {INSTALLER_ASSET_NAME} asset")
-                return False
+                self.update_error = f"Release has no {INSTALLER_ASSET_NAME}"
+                self.update_stage = UPD_ERROR
+                return
 
             download_dir = Path.home() / "Downloads"
             download_dir.mkdir(parents=True, exist_ok=True)
@@ -645,22 +749,110 @@ class KityPlayer:
                 asset['browser_download_url'],
                 headers={'User-Agent': 'SweetVibe-Player'})
             with urllib.request.urlopen(download_req, timeout=60) as response:
+                total = int(response.headers.get("Content-Length") or 0)
+                got = 0
+                started = time.time()
                 with partial_path.open("wb") as installer_file:
-                    while chunk := response.read(1024 * 1024):
+                    while True:
+                        chunk = response.read(256 * 1024)
+                        if not chunk:
+                            break
                         installer_file.write(chunk)
+                        got += len(chunk)
+                        if total:
+                            self.update_pct = min(100, int(got * 100 / total))
+                        else:
+                            # no Content-Length: creep so the bar still moves
+                            self.update_pct = min(99, self.update_pct + 1)
+                        elapsed = max(0.001, time.time() - started)
+                        mb = got / 1048576
+                        self.update_speed = "%.1f MB  %.1f MB/s" % (
+                            mb, mb / elapsed)
             partial_path.replace(installer_path)
 
-            ver_file = Path.home() / ".sweetvibe_version"
-            ver_file.write_text(release_version, encoding="utf-8")
+            # Only mark the new version as installed once the installer is
+            # actually in place and ready to run.
+            if release_version:
+                ver_file = Path.home() / ".sweetvibe_version"
+                ver_file.write_text(release_version, encoding="utf-8")
+            self.update_path = installer_path
+            self.update_pct = 100
             self.update_available = False
-            self.add_log(f"Downloaded update to {installer_path}")
-            if os.name == "nt":
-                os.startfile(str(installer_path))
-                return True
-            self.add_log("Installer can only be launched on Windows")
+            self.update_stage = UPD_DONE
+            self.add_log(f"Update ready: {installer_path.name}")
         except Exception as e:
-            self.add_log(f"Update failed: {str(e)[:20]}")
-        return False
+            self.update_error = str(e)[:60] or e.__class__.__name__
+            self.update_stage = UPD_ERROR
+            self.add_log("Update failed: " + str(self.update_error)[:24])
+            try:
+                partial = (Path.home() / "Downloads"
+                           / INSTALLER_ASSET_NAME).with_suffix(".download")
+                if partial.is_file():
+                    partial.unlink()
+            except OSError:
+                pass
+
+    def open_update_modal(self):
+        """`:update` entry point. Opens the popup, or re-checks when it has
+        nothing to show yet."""
+        if self.update_stage in (UPD_DOWNLOADING, UPD_DONE):
+            self.show_update = True
+            return
+        cached = (Path.home() / "Downloads" / INSTALLER_ASSET_NAME)
+        if self.update_available and self._installer_is_current(cached):
+            self.update_path = cached
+            self.update_from_cache = True
+            self.update_stage = UPD_DONE
+            self.show_update = True
+            return
+        if self.update_available:
+            self.update_stage = UPD_READY
+            self.show_update = True
+            return
+        self.show_update = True
+        self.update_stage = UPD_CHECKING
+        threading.Thread(target=check_for_updates_async,
+                         args=(self, False), daemon=True).start()
+
+    def close_update_modal(self):
+        self.show_update = False
+        if self.update_stage in (UPD_ERROR, UPD_CHECKING):
+            self.update_stage = UPD_IDLE
+
+    def update_modal_action(self):
+        """Act on the highlighted button. Returns 'quit' when the app should
+        hand control to the installer."""
+        if self.update_stage == UPD_DONE:
+            if self.update_path and self._launch_installer(self.update_path):
+                return "quit"
+            return None
+        if self.update_stage == UPD_ERROR:
+            self.update_stage = UPD_CHECKING
+            self.update_error = ""
+            threading.Thread(target=check_for_updates_async,
+                             args=(self, False), daemon=True).start()
+            return None
+        if self.update_selection == 0:
+            if not self.update_available:
+                self.update_stage = UPD_CHECKING
+                threading.Thread(target=check_for_updates_async,
+                                 args=(self, False), daemon=True).start()
+                return None
+            self.start_update_download()
+        elif self.update_selection == 1:
+            self.close_update_modal()
+            self.add_log("Update reminder snoozed - type :update any time.")
+        else:
+            try:
+                SKIPPED_VERSION_FILE.write_text(self.latest_version,
+                                                encoding="utf-8")
+            except OSError:
+                pass
+            self.update_notified = True
+            self.close_update_modal()
+            self.add_log(f"Skipped {self.latest_version}. "
+                         "Delete .sweetvibe_skipped_version to undo.")
+        return None
 
     def update_file_list(self):
         try:
@@ -1418,6 +1610,9 @@ class KityPlayer:
                     ("--- CONFIG ---", "HEADER"),
                     ("Keybinds File", str(KEYBINDS_FILE).replace(str(Path.home()), "~")),
                     ("Format", "action=key1,key2,key3 | $setting=val"),
+                    (":update", "Open the in-CLI update popup"),
+                    (":about", "About window"),
+                    (":settings", "Keybinds & colors"),
                 ]
             ]
 
@@ -1456,9 +1651,182 @@ class KityPlayer:
         if self.show_settings:
             self.draw_settings()
 
+        # UPDATE POPUP (on top of everything else)
+        if self.show_update:
+            self.draw_update()
+
         for hook in self.plugin_hooks.get("on_draw", []):
             try: hook(self.screen)
             except: pass
+
+    # ----------------------------------------------------------------- update UI
+    def draw_update(self):
+        """Centered in-CLI update popup. Adapts to the terminal size and to
+        whichever stage the download is in."""
+        w, h = self.screen.width, self.screen.height
+        stage = self.update_stage
+
+        # Only as tall as the stage actually needs, so there is no dead space
+        # between the last line and the button row.
+        if stage == UPD_READY:
+            rows = 13
+        elif stage == UPD_DOWNLOADING:
+            rows = 11
+        else:
+            rows = 9
+        # draw_box paints its bottom edge at y + h, so the box needs h + 1
+        # rows and w + 1 columns to stay on screen.
+        ew = min(64, max(10, w - 1))
+        eh = min(rows, max(4, h - 1))
+        ex = max(0, (w - 1 - ew) // 2)
+        ey = max(0, (h - 1 - eh) // 2)
+
+        spinner = "|/-\\"[self.update_spinner % 4]
+
+        if stage == UPD_CHECKING:
+            title, tcolor = f" CHECKING FOR UPDATES {spinner} ", Screen.COLOUR_CYAN
+        elif stage == UPD_DOWNLOADING:
+            title, tcolor = " DOWNLOADING UPDATE ", Screen.COLOUR_CYAN
+        elif stage == UPD_DONE:
+            title, tcolor = " UPDATE READY ", Screen.COLOUR_GREEN
+        elif stage == UPD_ERROR:
+            title, tcolor = " UPDATE FAILED ", Screen.COLOUR_RED
+        else:
+            title, tcolor = " UPDATE AVAILABLE ", Screen.COLOUR_YELLOW
+        self.draw_box(ex, ey, ew, eh, title, tcolor, rounded=True)
+
+        inner = ew - 4
+        cx = ex + 2
+        y = ey + 2
+
+        mine = local_version()
+
+        def line(text, color=Screen.COLOUR_WHITE, attr=Screen.A_NORMAL):
+            nonlocal y
+            if y > ey + eh - 3:
+                return
+            self.screen.print_at(self.truncate_text(text, inner), cx, y,
+                                 color, attr)
+            y += 1
+
+        if stage == UPD_CHECKING:
+            line(f"Contacting GitHub {spinner}", Screen.COLOUR_CYAN, Screen.A_BOLD)
+            line("")
+            line("Looking for a newer SweetVibe build...", Screen.COLOUR_WHITE)
+            line("Music keeps playing while we check.", Screen.COLOUR_WHITE)
+            line("")
+            line("ESC / CTRL+B to close", Screen.COLOUR_WHITE, Screen.A_BOLD)
+            return
+
+        if stage == UPD_DOWNLOADING:
+            line(f"Version {self.latest_version}  (you have {mine})",
+                 Screen.COLOUR_CYAN, Screen.A_BOLD)
+            # progress bar + percentage, both clamped to the interior
+            pct_txt = f"{max(0, min(100, self.update_pct))}%"
+            bar_w = max(6, inner - len(pct_txt) - 1)
+            filled = int(bar_w * max(0, min(100, self.update_pct)) / 100)
+            bar = "█" * filled + "░" * (bar_w - filled)
+            self.screen.print_at(bar, cx, y, Screen.COLOUR_CYAN, Screen.A_BOLD)
+            self.screen.print_at(pct_txt, cx + bar_w + 1, y,
+                                 Screen.COLOUR_WHITE, Screen.A_BOLD)
+            y += 1
+            line("")
+            line(self.update_speed or f"Fetching {INSTALLER_ASSET_NAME}...",
+                 Screen.COLOUR_CYAN)
+            line("to ~/Downloads  -  playing in the background", Screen.COLOUR_WHITE)
+            line("")
+            line("ESC hides this - the download keeps going.", Screen.COLOUR_WHITE, Screen.A_BOLD)
+            return
+
+        if stage == UPD_DONE:
+            line(f"Version {self.latest_version} downloaded.", Screen.COLOUR_GREEN, Screen.A_BOLD)
+            line("SweetVibe closes and hands over to Windows Setup.",
+                 Screen.COLOUR_WHITE)
+            if self.update_path:
+                line(self.truncate_text(str(self.update_path), inner),
+                     Screen.COLOUR_CYAN)
+            line("")
+            self._draw_update_buttons(ex, ey, ew, eh,
+                                      single="Launch installer now")
+            return
+
+        if stage == UPD_ERROR:
+            line("The update could not be completed.", Screen.COLOUR_RED, Screen.A_BOLD)
+            if self.update_error:
+                line(self.truncate_text("Reason: " + self.update_error, inner),
+                     Screen.COLOUR_WHITE)
+            line("Check your connection, then try again.", Screen.COLOUR_WHITE)
+            line("")
+            self._draw_update_buttons(ex, ey, ew, eh, single="Try again")
+            return
+
+        # ---- UPD_READY ----
+        line(f"SweetVibe {self.latest_version} is available", Screen.COLOUR_YELLOW, Screen.A_BOLD)
+        line(f"You are running {mine}", Screen.COLOUR_WHITE)
+        line("")
+        # release notes, trimmed to whatever vertical room is left above the
+        # button row so the popup never grows a ragged empty bottom
+        notes = [raw.strip().lstrip("#*-•").strip()
+                 for raw in self.update_notes.splitlines()]
+        notes = [n for n in notes if n][:3]
+        if not notes:
+            notes = ["Bug fixes and improvements."]
+        room = (ey + eh - 2) - y - 1
+        for txt in notes[:max(0, room)]:
+            line(self.truncate_text(txt, inner), Screen.COLOUR_CYAN)
+        line("")
+        line(f"{INSTALLER_ASSET_NAME}  ->  ~/Downloads", Screen.COLOUR_WHITE)
+        self._draw_update_buttons(ex, ey, ew, eh)
+
+    # short labels so the button row survives a narrow terminal
+    UPDATE_ACTIONS = ("Install now", "Remind me later", "Skip this version")
+    UPDATE_ACTIONS_SHORT = ("Install", "Later", "Skip")
+
+    def _draw_update_buttons(self, ex, ey, ew, eh, single=None):
+        """Button row at the bottom of the popup, highlight on the selection.
+        Falls back to short labels, then to a single stacked list, so the row
+        can never paint outside the box."""
+        y = ey + eh - 2
+        if y <= ey + 2:
+            return
+        if single:
+            items = [single]
+        else:
+            items = list(self.UPDATE_ACTIONS)
+        gap = 3
+
+        def draw_row(labels, row_y):
+            total = sum(len(t) + 2 for t in labels) + gap * (len(labels) - 1)
+            x = ex + max(1, (ew - total) // 2)
+            for i, text in enumerate(labels):
+                label = f" {text} "
+                if x + len(label) > ex + ew - 1:      # would spill out
+                    return False
+                sel = (single is not None) or (i == self.update_selection)
+                if sel:
+                    self.screen.print_at(label, x, row_y, Screen.COLOUR_BLACK,
+                                         Screen.A_BOLD, bg=Screen.COLOUR_YELLOW)
+                else:
+                    self.screen.print_at(label, x, row_y, Screen.COLOUR_WHITE,
+                                         Screen.A_NORMAL, bg=Screen.COLOUR_BLACK)
+                x += len(label) + gap
+            return True
+
+        if draw_row(items, y):
+            return
+        if draw_row(list(self.UPDATE_ACTIONS_SHORT), y):
+            return
+        # last resort: one button per line, still inside the box
+        row = y - (len(items) - 1)
+        for i, text in enumerate(items):
+            if row + i >= ey + eh - 1:
+                break
+            label = f" {text} "
+            sel = (single is not None) or (i == self.update_selection)
+            self.screen.print_at(label, ex + 2, row + i,
+                                 Screen.COLOUR_BLACK if sel else Screen.COLOUR_WHITE,
+                                 Screen.A_BOLD if sel else Screen.A_NORMAL,
+                                 bg=Screen.COLOUR_YELLOW if sel else Screen.COLOUR_BLACK)
 
     # ----------------------------------------------------------------- settings UI
     def draw_settings(self):
@@ -1760,12 +2128,7 @@ def demo(screen):
                                 elif cmd == ":about":
                                     player.show_about = True
                                 elif cmd == ":update":
-                                    if player.update_available:
-                                        if player.perform_update():
-                                            player.stop()
-                                            raise QuitApplication()
-                                    else:
-                                        player.add_log("No updates available.")
+                                    player.open_update_modal()
                                 elif cmd == ":keybinds" or cmd == ":settings":
                                     player.show_settings = True
                                     player.kb_index = 0
@@ -1806,6 +2169,39 @@ def demo(screen):
                         player.input_text += " "
                         if player.input_mode == 'search':
                             player.apply_filter()
+
+                # ---- Update modal ----
+                elif player.show_update:
+                    stage = player.update_stage
+                    # while the file is coming down, only the escape hatches
+                    # are live - a stray key must not cancel the install
+                    if stage == UPD_DOWNLOADING:
+                        if key_str in ["esc", "ctrl+b"]:
+                            player.show_update = False
+                            player.add_log("Download continues - :update to peek.")
+                    elif key_str in ["up"]:
+                        if stage not in (UPD_DONE, UPD_ERROR):
+                            player.update_selection = (player.update_selection - 1) % 3
+                    elif key_str in ["down"]:
+                        if stage not in (UPD_DONE, UPD_ERROR):
+                            player.update_selection = (player.update_selection + 1) % 3
+                    elif key_str in ["enter", "right"]:
+                        if player.update_modal_action() == "quit":
+                            player.stop()
+                            raise QuitApplication()
+                    elif key_str in ["left"]:
+                        player.update_selection = 0
+                    elif key_str == "r" and stage in (UPD_ERROR, UPD_IDLE, UPD_CHECKING):
+                        player.update_stage = UPD_CHECKING
+                        player.update_error = ""
+                        threading.Thread(target=check_for_updates_async,
+                                         args=(player, False), daemon=True).start()
+                    elif key_str in ["esc", "ctrl+b"]:
+                        player.close_update_modal()
+                        if stage == UPD_DONE and player.update_path:
+                            player.add_log("Installer ready at: " + str(player.update_path))
+                        elif stage == UPD_READY:
+                            player.add_log("Update postponed - :update to install.")
 
                 # ---- About modal ----
                 elif player.show_about:
@@ -2040,6 +2436,10 @@ def demo(screen):
             screen.clear_buffer(Screen.COLOUR_BLACK, Screen.A_NORMAL, Screen.COLOUR_BLACK)
             player.draw()
             screen.refresh()
+
+            # keep the update popup alive: spinner ticks even when the
+            # download runs on a worker thread
+            player.update_spinner += 1
             
             for hook in player.plugin_hooks.get("on_tick", []):
                 try: hook()
