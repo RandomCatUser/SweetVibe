@@ -35,7 +35,7 @@ except ImportError:
     print("Tip: Install numpy & soundfile (pip install numpy soundfile) for a real audio-reactive spectrum.")
 
 AUDIO_EXTS = {'.mp3', '.wav', '.flac', '.m4a', '.ogg', '.opus', '.aac', '.webm'}
-CURRENT_VERSION = "1.5.0"
+CURRENT_VERSION = "1.5.1"
 RELEASES_API_URL = "https://api.github.com/repos/RandomCatUser/SweetVibe/releases/latest"
 INSTALLER_ASSET_NAME = "Setup_Windows_x64.exe"
 SKIPPED_VERSION_FILE = Path.home() / ".sweetvibe_skipped_version"
@@ -2043,9 +2043,44 @@ def get_key_str(event):
     return None  # Ignore unsupported keys
 
 
+def parse_open_target(argv):
+    """A path passed on the command line (Windows right-click ->
+    'Play in SweetVibe' / 'Open with'). A supported audio file jumps straight
+    to its folder and starts playing; a folder just opens in the browser."""
+    for raw in argv[1:]:
+        raw = str(raw).strip().strip('"')
+        if not raw or raw.startswith("-"):
+            continue
+        try:
+            p = Path(os.path.expandvars(raw))
+            if p.is_file() and p.suffix.lower() in AUDIO_EXTS:
+                return ("file", p.parent, p)
+            if p.is_dir():
+                return ("dir", p, None)
+        except OSError:
+            continue
+    return None
+
+
 def demo(screen):
     global _shared_state
     player = KityPlayer(screen)
+
+    # 'Open with SweetVibe' / directory right-click 'Play in SweetVibe'
+    target = parse_open_target(sys.argv)
+    if target:
+        kind, open_dir, open_file = target
+        player.current_dir = open_dir
+        player.update_file_list()
+        if kind == "file":
+            for i, item in enumerate(player.display_playlist):
+                if item[0] == 'file' and Path(item[2]) == open_file:
+                    player.play_index(i)
+                    break
+            else:
+                player.add_log(f"Couldn't queue: {open_file.name}")
+        else:
+            player.add_log(f"Opened folder: {open_dir.name or open_dir}")
 
     if _shared_state:
         player.current_index = _shared_state.get('index', -1)

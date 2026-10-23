@@ -1,7 +1,7 @@
 
 
 #define MyAppName "SweetVibe"
-#define MyAppVersion "1.5.0"
+#define MyAppVersion "1.5.1"
 #define MyAppPublisher "DihanRamanayaka"
 #define MyAppURL "https://github.com/RandomCatUser/SweetVibe"
 #define MyAppExeName "SweetVibe.exe"
@@ -100,6 +100,33 @@ Root: HKLM; Subkey: "Software\Classes\Directory\shell\SweetVibe\command"; ValueT
 Root: HKLM; Subkey: "Software\Classes\Directory\Background\shell\SweetVibe"; ValueType: string; ValueName: ""; ValueData: "Play in {#MyAppName}"; Flags: uninsdeletekey
 Root: HKLM; Subkey: "Software\Classes\Directory\Background\shell\SweetVibe"; ValueType: string; ValueName: "Icon"; ValueData: "{app}\{#AppIcon}"; Flags: uninsdeletekey
 Root: HKLM; Subkey: "Software\Classes\Directory\Background\shell\SweetVibe\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%V"""; Flags: uninsdeletekey
+; 'Play in {#MyAppName}' on individual audio files -> exe receives the file
+; path and opens its folder, ready to play (SystemFileAssociations works
+; without stealing the default handler for any extension)
+Root: HKLM; Subkey: "Software\Classes\SystemFileAssociations\.mp3\shell\SweetVibe"; ValueType: string; ValueName: ""; ValueData: "Play in {#MyAppName}"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Classes\SystemFileAssociations\.mp3\shell\SweetVibe"; ValueType: string; ValueName: "Icon"; ValueData: "{app}\{#AppIcon}"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Classes\SystemFileAssociations\.mp3\shell\SweetVibe\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%1"""; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Classes\SystemFileAssociations\.aac\shell\SweetVibe"; ValueType: string; ValueName: ""; ValueData: "Play in {#MyAppName}"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Classes\SystemFileAssociations\.aac\shell\SweetVibe"; ValueType: string; ValueName: "Icon"; ValueData: "{app}\{#AppIcon}"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Classes\SystemFileAssociations\.aac\shell\SweetVibe\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%1"""; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Classes\SystemFileAssociations\.m4a\shell\SweetVibe"; ValueType: string; ValueName: ""; ValueData: "Play in {#MyAppName}"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Classes\SystemFileAssociations\.m4a\shell\SweetVibe"; ValueType: string; ValueName: "Icon"; ValueData: "{app}\{#AppIcon}"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Classes\SystemFileAssociations\.m4a\shell\SweetVibe\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%1"""; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Classes\SystemFileAssociations\.wav\shell\SweetVibe"; ValueType: string; ValueName: ""; ValueData: "Play in {#MyAppName}"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Classes\SystemFileAssociations\.wav\shell\SweetVibe"; ValueType: string; ValueName: "Icon"; ValueData: "{app}\{#AppIcon}"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Classes\SystemFileAssociations\.wav\shell\SweetVibe\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%1"""; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Classes\SystemFileAssociations\.flac\shell\SweetVibe"; ValueType: string; ValueName: ""; ValueData: "Play in {#MyAppName}"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Classes\SystemFileAssociations\.flac\shell\SweetVibe"; ValueType: string; ValueName: "Icon"; ValueData: "{app}\{#AppIcon}"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Classes\SystemFileAssociations\.flac\shell\SweetVibe\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%1"""; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Classes\SystemFileAssociations\.ogg\shell\SweetVibe"; ValueType: string; ValueName: ""; ValueData: "Play in {#MyAppName}"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Classes\SystemFileAssociations\.ogg\shell\SweetVibe"; ValueType: string; ValueName: "Icon"; ValueData: "{app}\{#AppIcon}"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Classes\SystemFileAssociations\.ogg\shell\SweetVibe\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%1"""; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Classes\SystemFileAssociations\.opus\shell\SweetVibe"; ValueType: string; ValueName: ""; ValueData: "Play in {#MyAppName}"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Classes\SystemFileAssociations\.opus\shell\SweetVibe"; ValueType: string; ValueName: "Icon"; ValueData: "{app}\{#AppIcon}"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Classes\SystemFileAssociations\.opus\shell\SweetVibe\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%1"""; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Classes\SystemFileAssociations\.webm\shell\SweetVibe"; ValueType: string; ValueName: ""; ValueData: "Play in {#MyAppName}"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Classes\SystemFileAssociations\.webm\shell\SweetVibe"; ValueType: string; ValueName: "Icon"; ValueData: "{app}\{#AppIcon}"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Classes\SystemFileAssociations\.webm\shell\SweetVibe\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%1"""; Flags: uninsdeletekey
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent runasoriginaluser
