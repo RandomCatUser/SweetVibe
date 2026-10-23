@@ -58,6 +58,7 @@ import struct
 import random
 import hashlib
 import platform
+import tempfile
 import threading
 import subprocess
 import unicodedata
@@ -369,12 +370,44 @@ def _writable_dir(path):
     except (OSError, PermissionError):
         return None
 
+def _stale_pin(path):
+    """A pin pointing inside the OS temp area is a leftover from tests or a
+    wiped %TEMP% - never a deliberate user choice, so it must not hijack the
+    download target away from the browsed folder."""
+    try:
+        root = Path(tempfile.gettempdir()).resolve()
+        target = Path(path).resolve()
+        target.relative_to(root)
+        return True
+    except ValueError:
+        return False
+    except Exception:
+        pass
+    return False
+
+
+def _clear_stale_pin(pinned):
+    try:
+        cfg = _load_json(CONFIG_FILE, {})
+        if cfg.get("download_dir") == str(pinned):
+            cfg.pop("download_dir", None)
+            _atomic_json(CONFIG_FILE, cfg)
+        if _player is not None:
+            _player.add_log("Stale download pin cleared (temp dir)."
+                            " Downloads follow your BROWSE folder again.")
+    except Exception:
+        pass
+
+
 def get_download_dir():
     cfg = _load_json(CONFIG_FILE, {})
     pinned = cfg.get("download_dir")
     if pinned:
-        p = _writable_dir(pinned)
-        if p: return p
+        if _stale_pin(pinned):
+            _clear_stale_pin(pinned)
+        else:
+            p = _writable_dir(pinned)
+            if p: return p
     env = os.environ.get("SWEETVIBE_DOWNLOAD_DIR")
     if env:
         p = _writable_dir(env)
@@ -399,6 +432,9 @@ def set_download_dir(raw):
         _player.add_log("Pin cleared. Target = " + str(get_download_dir()))
         return True
     p = Path(os.path.expandvars(raw)).expanduser()
+    if _stale_pin(p):
+        _player.add_log("Refusing to pin a temp dir. Pick a real folder.")
+        return False
     try: p.mkdir(parents=True, exist_ok=True)
     except Exception as e:
         _player.add_log("Can't use '" + raw[:30] + "': " + str(e)[:20])
